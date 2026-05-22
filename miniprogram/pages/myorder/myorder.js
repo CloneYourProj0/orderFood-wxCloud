@@ -118,7 +118,9 @@ Page({
 
       const list = (res.data || []).map(order => ({
         ...order,
-        createTimeText: order.createTime ? formatTime(order.createTime) : ''
+        createTimeText: order.createTime ? formatTime(order.createTime) : '',
+        shopNameText: order.shopName || (order.shopInfo && order.shopInfo.name) || '',
+        shopAddressText: order.shopAddress || (order.shopInfo && order.shopInfo.address) || ''
       }))
       
       const newList = append ? this.data.orderList.concat(list) : list
@@ -175,10 +177,13 @@ Page({
       // 点餐订单详情
       let goodsInfo = ''
       order.goods.forEach(item => {
-        goodsInfo += `${item.goodsName} x${item.count} ¥${item.price}\n`
+        goodsInfo += `${item.dishName || item.goodsName} x${item.count} ¥${item.price}\n`
       })
       
       let content = `订单商品：\n${goodsInfo}\n原价：¥${order.totalPrice}`
+      if (order.shopNameText) {
+        content += `\n分店：${order.shopNameText}`
+      }
       if (order.useMiandan) {
         content += '\n使用免单：-¥' + order.totalPrice
       }

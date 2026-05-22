@@ -1,6 +1,9 @@
 // pages/index/index.js
 const app = getApp()
 const db = wx.cloud.database()
+const { normalizeShopList } = require('../../utils/location.js')
+const SELECTED_SHOP_ID_KEY = 'selectedShopId'
+const SELECTED_SHOP_INFO_KEY = 'selectedShopInfo'
 
 Page({
   data: {
@@ -16,6 +19,11 @@ Page({
     noticeList: [], // 公告列表
     noticeText: '', // 公告文本（用于vant组件）
     shopInfo: {}, // 店铺信息
+    shopList: [], // 分店列表
+    currentShop: null, // 当前选择的分店
+    userLocation: null, // 用户定位信息
+    locating: false, // 是否正在定位
+    showShopSelector: false, // 是否显示分店选择弹窗
     showTagModal: false, // 显示标签选择弹窗
     currentDish: null, // 当前选择的菜品
     selectedTags: {}, // 当前选择的标签 {tagId: [选项]}
@@ -37,29 +45,23 @@ Page({
     this.setData({
       statusBarHeight: systemInfo.statusBarHeight || 0
     })
+
+    this.pendingShopId = options.shopId || ''
+    this.hasStoredShop = !!wx.getStorageSync(SELECTED_SHOP_ID_KEY)
     
     // 检查是否从扫码进入，获取桌码号
     // 小程序码扫码进入时，scene参数会在options.scene中
     if (options.scene) {
       // scene参数是经过URL编码的，需要解码
-      try {
-        const scene = decodeURIComponent(options.scene)
-        if (scene) {
-          this.setData({
-            tableNumber: scene
-          })
-          wx.showToast({
-            title: `桌码：${scene}`,
-            icon: 'success',
-            duration: 2000
-          })
-        }
-      } catch (e) {
-        console.error('解析scene参数失败', e)
-      }
+      this.applyTableScene(options.scene)
     }
     
-    this.loadShopInfo()
+    this.loadShopInfo().then(() => {
+      this.locateNearestShop({
+        silent: true,
+        keepSelected: !!this.pendingShopId || this.hasStoredShop
+      })
+    })
     this.loadMenu()
     this.loadUserInfo()
     this.loadNotices()
@@ -69,18 +71,223 @@ Page({
     this.loadUserInfo()
   },
 
-  // 加载店铺信息
+  // 加载分店信息，兼容原来的单店 shopInfo 记录
   async loadShopInfo() {
     try {
-      const res = await db.collection('shopInfo').limit(1).get()
-      
-      if (res.data && res.data.length > 0) {
-        this.setData({
-          shopInfo: res.data[0]
-        })
+      const res = await db.collection('shopInfo')
+        .orderBy('sort', 'asc')
+        .limit(100)
+        .get()
+      const rawList = res.data || []
+      const activeList = rawList.filter(item => item.status !== 0)
+      const shopList = normalizeShopList(activeList.length ? activeList : rawList, this.data.userLocation)
+      const storedShopId = wx.getStorageSync(SELECTED_SHOP_ID_KEY)
+      const targetShopId = this.pendingShopId || storedShopId
+      const currentShop = shopList.find(item => item._id === targetShopId)
+        || shopList.find(item => item.status !== 0)
+        || shopList[0]
+        || null
+
+      this.setData({
+        shopList,
+        currentShop,
+        shopInfo: currentShop || {}
+      })
+
+      if (currentShop) {
+        this.saveSelectedShop(currentShop)
       }
     } catch (err) {
       console.error('加载店铺信息失败', err)
+      const cachedShop = wx.getStorageSync(SELECTED_SHOP_INFO_KEY)
+      if (cachedShop && cachedShop._id) {
+        this.setData({
+          currentShop: cachedShop,
+          shopInfo: cachedShop,
+          shopList: [cachedShop]
+        })
+      }
+    }
+  },
+
+  saveSelectedShop(shop) {
+    if (!shop) return
+    app.globalData.currentShop = shop
+    wx.setStorageSync(SELECTED_SHOP_ID_KEY, shop._id || '')
+    wx.setStorageSync(SELECTED_SHOP_INFO_KEY, shop)
+  },
+
+  getOrderShopInfo() {
+    const shop = this.data.currentShop || this.data.shopInfo || {}
+    return {
+      _id: shop._id || '',
+      name: shop.name || '',
+      address: shop.address || '',
+      phone: shop.phone || '',
+      latitude: shop.latitude || '',
+      longitude: shop.longitude || '',
+      businessHours: shop.businessHours || ''
+    }
+  },
+
+  openShopSelector() {
+    this.setData({
+      showShopSelector: true
+    })
+  },
+
+  closeShopSelector() {
+    this.setData({
+      showShopSelector: false
+    })
+  },
+
+  selectShop(e) {
+    const shopId = e.currentTarget.dataset.id
+    const shop = this.data.shopList.find(item => item._id === shopId)
+    if (!shop) return
+
+    this.setData({
+      currentShop: shop,
+      shopInfo: shop,
+      showShopSelector: false
+    })
+    this.saveSelectedShop(shop)
+    wx.showToast({
+      title: '已切换分店',
+      icon: 'success'
+    })
+  },
+
+  locateNearestShop(options = {}) {
+    const isTapEvent = options && options.currentTarget
+    const opts = isTapEvent ? { silent: false, keepSelected: false } : options
+
+    this.setData({ locating: true })
+    wx.getLocation({
+      type: 'gcj02',
+      success: (res) => {
+        const userLocation = {
+          latitude: res.latitude,
+          longitude: res.longitude
+        }
+        app.globalData.userLocation = userLocation
+
+        const shopList = normalizeShopList(this.data.shopList, userLocation)
+        const storedShopId = wx.getStorageSync(SELECTED_SHOP_ID_KEY)
+        const currentShopId = opts.keepSelected ? (this.data.currentShop?._id || storedShopId) : ''
+        const currentShop = shopList.find(item => item._id === currentShopId)
+          || shopList.find(item => item.distance !== null && item.status !== 0)
+          || shopList.find(item => item.status !== 0)
+          || shopList[0]
+          || null
+
+        this.setData({
+          userLocation,
+          shopList,
+          currentShop,
+          shopInfo: currentShop || {},
+          locating: false
+        })
+
+        if (currentShop) {
+          this.saveSelectedShop(currentShop)
+        }
+
+        if (!opts.silent) {
+          wx.showToast({
+            title: currentShop && currentShop.distanceText ? `最近：${currentShop.distanceText}` : '定位成功',
+            icon: 'none'
+          })
+        }
+      },
+      fail: (err) => {
+        console.error('定位失败', err)
+        this.setData({ locating: false })
+        if (!opts.silent) {
+          const denied = err.errMsg && err.errMsg.indexOf('auth deny') > -1
+          if (denied) {
+            wx.showModal({
+              title: '需要定位权限',
+              content: '开启定位后可为你推荐最近的分店',
+              confirmText: '去设置',
+              success: (res) => {
+                if (res.confirm) {
+                  wx.openSetting()
+                }
+              }
+            })
+          } else {
+            wx.showToast({
+              title: '定位失败，请手动选择分店',
+              icon: 'none'
+            })
+          }
+        }
+      }
+    })
+  },
+
+  parseTableScene(sceneValue) {
+    const decoded = decodeURIComponent(sceneValue || '').trim()
+    if (!decoded) {
+      return {
+        tableNumber: '',
+        shopId: ''
+      }
+    }
+
+    const query = decoded.indexOf('?') > -1 ? decoded.split('?')[1] : decoded
+    if (query.indexOf('=') === -1) {
+      return {
+        tableNumber: query,
+        shopId: ''
+      }
+    }
+
+    const params = {}
+    query.split('&').forEach(item => {
+      const pair = item.split('=')
+      const key = pair[0]
+      const value = pair.slice(1).join('=')
+      if (key) {
+        params[key] = decodeURIComponent(value || '')
+      }
+    })
+
+    return {
+      tableNumber: (params.tableNumber || params.table || params.tableNo || params.t || '').trim(),
+      shopId: (params.shopId || params.storeId || params.shop || '').trim()
+    }
+  },
+
+  applyTableScene(sceneValue, showToast = true) {
+    try {
+      const { tableNumber, shopId } = this.parseTableScene(sceneValue)
+      if (shopId) {
+        this.pendingShopId = shopId
+        const shop = this.data.shopList.find(item => item._id === shopId)
+        if (shop) {
+          this.setData({
+            currentShop: shop,
+            shopInfo: shop
+          })
+          this.saveSelectedShop(shop)
+        }
+      }
+
+      if (tableNumber) {
+        this.setData({ tableNumber })
+        if (showToast) {
+          wx.showToast({
+            title: `桌码：${tableNumber}`,
+            icon: 'success',
+            duration: 2000
+          })
+        }
+      }
+    } catch (e) {
+      console.error('解析scene参数失败', e)
     }
   },
 
@@ -695,6 +902,12 @@ Page({
       return
     }
 
+    if (this.data.shopList.length > 0 && !this.data.currentShop) {
+      wx.showToast({ title: '请先选择分店', icon: 'none' })
+      this.openShopSelector()
+      return
+    }
+
     // 检查是否有桌码，如果没有则提示用户扫桌码
     if (!this.data.tableNumber) {
       wx.showModal({
@@ -722,7 +935,9 @@ Page({
       wx.setStorageSync('settleCartData', {
         cart: this.data.cart,
         totalPrice: this.data.cartTotalPrice,
-        tableNumber: this.data.tableNumber || ''
+        tableNumber: this.data.tableNumber || '',
+        shopId: this.data.currentShop?._id || '',
+        shopInfo: this.getOrderShopInfo()
       })
       
       // 跳转到结算页面
@@ -750,7 +965,7 @@ Page({
       success: (res) => {
         wx.hideLoading()
         console.log(res)
-        let tableNumber = ''
+        let scene = ''
         
         // 从 path 的 scene 参数中提取桌码号
         if (res.path) {
@@ -760,21 +975,21 @@ Page({
             for (let param of params) {
               const [key, value] = param.split('=')
               if (key === 'scene' && value) {
-                tableNumber = decodeURIComponent(value).trim()
+                scene = decodeURIComponent(value).trim()
                 break
               }
             }
           }
         }
-        
+
+        if (!scene && res.result) {
+          scene = res.result
+        }
+
+        const { tableNumber } = this.parseTableScene(scene)
+
         if (tableNumber) {
-          this.setData({
-            tableNumber: tableNumber
-          })
-          wx.showToast({
-            title: `桌码：${tableNumber}`,
-            icon: 'success'
-          })
+          this.applyTableScene(scene)
           // 扫码成功后，跳转到结算页面
           setTimeout(() => {
             this.navigateToSettle()
@@ -872,7 +1087,9 @@ Page({
           finalPrice,
           useMiandan,
           payWithBalance,
-          tableNumber: this.data.tableNumber || '' // 传递桌码号
+          tableNumber: this.data.tableNumber || '', // 传递桌码号
+          shopId: this.data.currentShop?._id || '',
+          shopInfo: this.getOrderShopInfo()
         }
       })
 
@@ -951,18 +1168,20 @@ Page({
 
   // 分享功能
   onShareAppMessage() {
+    const shopId = this.data.currentShop?._id || ''
     return {
       title: this.data.shopInfo.name || '餐饮点餐',
-      path: '/pages/index/index',
+      path: shopId ? `/pages/index/index?shopId=${shopId}` : '/pages/index/index',
       imageUrl: '' // 可以设置分享图片，留空则使用小程序默认图片
     }
   },
 
   // 分享到朋友圈
   onShareTimeline() {
+    const shopId = this.data.currentShop?._id || ''
     return {
       title: this.data.shopInfo.name || '餐饮点餐',
-      query: '',
+      query: shopId ? `shopId=${shopId}` : '',
       imageUrl: '' // 可以设置分享图片，留空则使用小程序默认图片
     }
   },
@@ -992,5 +1211,3 @@ Page({
     }
   }
 })
-
-

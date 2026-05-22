@@ -9,6 +9,8 @@ Page({
     finalPrice: 0, // 实付金额
     orderType: 'dineIn', // 订单类型：dineIn-堂食，takeOut-打包
     tableNumber: '', // 桌码号
+    shopId: '', // 分店ID
+    shopInfo: null, // 下单分店快照
     payMethod: 'balance', // 支付方式：miandan-免单，balance-余额，wechat-微信
     userInfo: null, // 用户信息
     userBalance: 0, // 用户余额
@@ -76,6 +78,8 @@ Page({
 
         // 如果有传递的桌码，使用传递的桌码
         const tableNumber = cartData.tableNumber || ''
+        const shopInfo = cartData.shopInfo || null
+        const shopId = cartData.shopId || (shopInfo && shopInfo._id) || ''
         
         // 根据是否有桌码设置默认订单类型（有桌码默认堂食，无桌码默认打包）
         // 但由于现在都需要桌码，所以默认设置为堂食
@@ -86,6 +90,8 @@ Page({
           totalPrice: totalPrice,
           finalPrice: totalPrice,
           tableNumber: tableNumber,
+          shopId: shopId,
+          shopInfo: shopInfo,
           orderType: 'dineIn' // 默认堂食
         })
 
@@ -134,7 +140,7 @@ Page({
   },
 
   // 从数据库加载用户信息（获取最新数据）
-  async loadUserInfoFromDB() {
+  async loadUserInfoFromDB(options = {}) {
     try {
       const openid = app.globalData.openid
       const res = await db.collection('user').where({
@@ -526,7 +532,9 @@ Page({
           useMiandan: useMiandan,
           payWithBalance: payWithBalance,
           tableNumber: this.data.tableNumber,
-          orderType: this.data.orderType
+          orderType: this.data.orderType,
+          shopId: this.data.shopId,
+          shopInfo: this.data.shopInfo
         }
       })
 
@@ -653,4 +661,3 @@ Page({
     }, 300)
   }
 })
-

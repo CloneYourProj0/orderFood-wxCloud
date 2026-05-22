@@ -19,6 +19,18 @@
     </view>
   </view>
 
+  <!-- 下单分店 -->
+  <view class="section" wx:if="{{shopInfo}}">
+    <view class="shop-info-wrapper">
+      <view class="shop-info-main">
+        <view class="shop-info-label">下单分店</view>
+        <view class="shop-info-name">{{shopInfo.name || '餐饮店'}}</view>
+        <view class="shop-info-address" wx:if="{{shopInfo.address}}">{{shopInfo.address}}</view>
+      </view>
+      <view class="change-table-btn" bind:tap="editOrder">更换</view>
+    </view>
+  </view>
+
   <!-- 桌码输入（无论堂食还是打包都需要） -->
   <view class="section">
     <view class="table-code-wrapper">
@@ -144,4 +156,3 @@
     bind:saved="onUserInfoSaved">
   </avatar-nickname-modal>
 </view>
-

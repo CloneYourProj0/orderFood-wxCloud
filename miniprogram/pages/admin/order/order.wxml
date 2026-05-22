@@ -85,6 +85,9 @@
           <view class="order-time">
             {{item.createTimeText}}
           </view>
+          <view class="order-shop-name" wx:if="{{item.shopNameText}}">
+            分店：{{item.shopNameText}}
+          </view>
           <view class="order-table-code" wx:if="{{item.tableNumber}}">
             桌码：{{item.tableNumber}}
           </view>
@@ -111,4 +114,3 @@
   </view>
 
 </view>
-

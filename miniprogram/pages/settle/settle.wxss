@@ -75,6 +75,40 @@
   font-weight: 600;
 }
 
+/* 分店信息 */
+.shop-info-wrapper {
+  padding: 0 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.shop-info-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.shop-info-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+
+.shop-info-name {
+  font-size: 32rpx;
+  color: #333;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.shop-info-address {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #777;
+  line-height: 1.45;
+}
+
 /* 桌码显示 */
 .table-code-wrapper {
   padding: 0 30rpx;
@@ -415,6 +449,5 @@
   opacity: 0.6;
   transform: none;
 }
-
 
 

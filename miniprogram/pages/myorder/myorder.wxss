@@ -265,6 +265,13 @@
   font-weight: 500;
 }
 
+.order-shop-name {
+  font-size: 24rpx;
+  color: #e54d42;
+  font-weight: 500;
+  margin-bottom: 6rpx;
+}
+
 .order-actions {
   display: flex;
   justify-content: flex-end;

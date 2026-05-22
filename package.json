@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "scripts": {
+    "dev:h5": "node h5/server.js"
+  }
+}

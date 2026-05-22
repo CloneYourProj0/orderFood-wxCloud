@@ -1,30 +1,140 @@
 <!--pages/admin/shopInfo/shopInfo.wxml-->
 <view class="page">
+  <view class="shop-list-section">
+    <view class="section-header">
+      <view>
+        <view class="section-title">分店管理</view>
+        <view class="section-desc">定位选店会按经纬度推荐最近分店</view>
+      </view>
+      <view class="add-shop-btn" bindtap="addShop">新增分店</view>
+    </view>
+
+    <scroll-view class="shop-tabs" scroll-x>
+      <view
+        class="shop-tab {{currentIndex === index ? 'active' : ''}}"
+        wx:for="{{shopList}}"
+        wx:key="_id"
+        data-index="{{index}}"
+        bindtap="selectShop">
+        <view class="shop-tab-name">{{item.name || '未命名分店'}}</view>
+        <view class="shop-tab-status {{item.status === 0 ? 'closed' : ''}}">
+          {{item.status === 0 ? '停用' : '启用'}}
+        </view>
+      </view>
+      <view class="shop-tab new {{currentIndex === -1 ? 'active' : ''}}" bindtap="addShop">
+        新分店
+      </view>
+    </scroll-view>
+  </view>
+
   <view class="form-section">
     <view class="form-item">
-      <view class="form-label">店铺名称</view>
-      <input 
-        class="form-input" 
-        placeholder="请输入店铺名称（最多8个字）" 
-        maxlength="8"
+      <view class="form-label">分店名称</view>
+      <input
+        class="form-input"
+        placeholder="请输入分店名称（最多12个字）"
+        maxlength="12"
         value="{{shopInfo.name}}"
-        bindinput="onNameInput"
+        data-field="name"
+        bindinput="onFieldInput"
+      />
+    </view>
+
+    <view class="form-item">
+      <view class="form-label">门店地址</view>
+      <input
+        class="form-input"
+        placeholder="请输入门店详细地址"
+        value="{{shopInfo.address}}"
+        data-field="address"
+        bindinput="onFieldInput"
+      />
+    </view>
+
+    <view class="form-row">
+      <view class="form-item half">
+        <view class="form-label">纬度</view>
+        <input
+          class="form-input"
+          type="digit"
+          placeholder="如 30.657"
+          value="{{shopInfo.latitude}}"
+          data-field="latitude"
+          bindinput="onFieldInput"
+        />
+      </view>
+      <view class="form-item half">
+        <view class="form-label">经度</view>
+        <input
+          class="form-input"
+          type="digit"
+          placeholder="如 104.066"
+          value="{{shopInfo.longitude}}"
+          data-field="longitude"
+          bindinput="onFieldInput"
+        />
+      </view>
+    </view>
+
+    <view class="form-row">
+      <view class="form-item half">
+        <view class="form-label">联系电话</view>
+        <input
+          class="form-input"
+          placeholder="可选"
+          value="{{shopInfo.phone}}"
+          data-field="phone"
+          bindinput="onFieldInput"
+        />
+      </view>
+      <view class="form-item half">
+        <view class="form-label">排序</view>
+        <input
+          class="form-input"
+          type="number"
+          placeholder="越小越靠前"
+          value="{{shopInfo.sort}}"
+          data-field="sort"
+          bindinput="onFieldInput"
+        />
+      </view>
+    </view>
+
+    <view class="form-item">
+      <view class="form-label">营业时间</view>
+      <input
+        class="form-input"
+        placeholder="如 10:00-22:00"
+        value="{{shopInfo.businessHours}}"
+        data-field="businessHours"
+        bindinput="onFieldInput"
       />
     </view>
 
     <view class="form-item">
       <view class="form-label">店铺简介</view>
-      <textarea 
-        class="form-textarea" 
-        placeholder="请输入店铺简介（可选）" 
+      <textarea
+        class="form-textarea"
+        placeholder="请输入店铺简介（可选）"
         value="{{shopInfo.description}}"
-        bindinput="onDescriptionInput"
+        data-field="description"
+        bindinput="onFieldInput"
       />
+    </view>
+
+    <view class="switch-row">
+      <view>
+        <view class="form-label">启用分店</view>
+        <view class="switch-desc">停用后用户端不再优先展示该分店</view>
+      </view>
+      <switch color="#e54d42" checked="{{shopInfo.status !== 0}}" bindchange="onStatusChange" />
     </view>
   </view>
 
-  <view class="save-btn" bindtap="saveShopInfo">
-    <text>保存</text>
+  <view class="action-row">
+    <view class="delete-btn" bindtap="deleteShopInfo">删除</view>
+    <view class="save-btn" bindtap="saveShopInfo">
+      <text>保存</text>
+    </view>
   </view>
 </view>
-

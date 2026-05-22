@@ -10,6 +10,19 @@ const db = cloud.database({
 })
 const _ = db.command
 
+function buildShopSnapshot(shop, fallback = {}) {
+  const source = shop || fallback || {}
+  return {
+    _id: source._id || fallback._id || '',
+    name: source.name || fallback.name || '',
+    address: source.address || fallback.address || '',
+    phone: source.phone || fallback.phone || '',
+    latitude: source.latitude || fallback.latitude || '',
+    longitude: source.longitude || fallback.longitude || '',
+    businessHours: source.businessHours || fallback.businessHours || ''
+  }
+}
+
 // 生成打印内容
 function generatePrintContent(order, shopInfo) {
   const orderTypeText = order.orderType === 'dineIn' ? '堂食' : '打包'
@@ -90,6 +103,9 @@ function generatePrintContent(order, shopInfo) {
   content += `<C></C><BR>`
   content += `<C><font# bolder=1 height=2 width=2>${orderTypeText}订单</font#></C><BR>`
   content += `<C><font# bolder=1 height=2 width=2>${escapeHtml(shopInfo?.name || '餐饮店')}</font#></C><BR>`
+  if (shopInfo?.address) {
+    content += `<LEFT>门店地址: ${escapeHtml(shopInfo.address)}</LEFT><BR>`
+  }
   content += `<BR>`
   
   // 订单编号和时间
@@ -196,9 +212,17 @@ async function printOrderAsync(orderId, orderData) {
     
     const printer = printerRes.data[0]
     
-    // 2. 查询店铺信息
-    const shopRes = await db.collection('shopInfo').limit(1).get()
-    const shopInfo = shopRes.data && shopRes.data.length > 0 ? shopRes.data[0] : null
+    // 2. 使用订单分店快照，兼容没有分店字段的历史订单
+    let shopInfo = orderData.shopInfo || null
+    if ((!shopInfo || !shopInfo.name) && orderData.shopId) {
+      const shopRes = await db.collection('shopInfo').doc(orderData.shopId).get()
+      shopInfo = shopRes.data || shopInfo
+    }
+    if (!shopInfo || !shopInfo.name) {
+      const shopRes = await db.collection('shopInfo').limit(1).get()
+      shopInfo = shopRes.data && shopRes.data.length > 0 ? shopRes.data[0] : null
+    }
+    shopInfo = buildShopSnapshot(shopInfo, orderData.shopInfo)
     
     // 3. 生成打印内容
     const printContent = generatePrintContent(orderData, shopInfo)

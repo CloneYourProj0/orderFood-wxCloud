@@ -7,6 +7,47 @@ cloud.init({
 
 const db = cloud.database()
 
+function buildShopSnapshot(shop, fallback = {}) {
+  const source = shop || fallback || {}
+  return {
+    _id: source._id || fallback._id || '',
+    name: source.name || fallback.name || '',
+    address: source.address || fallback.address || '',
+    phone: source.phone || fallback.phone || '',
+    latitude: source.latitude || fallback.latitude || '',
+    longitude: source.longitude || fallback.longitude || '',
+    businessHours: source.businessHours || fallback.businessHours || ''
+  }
+}
+
+async function getShopSnapshot(transaction, shopId, fallbackShopInfo) {
+  let shop = null
+
+  if (shopId) {
+    try {
+      const shopRes = await transaction.collection('shopInfo').doc(shopId).get()
+      if (shopRes && shopRes.data && shopRes.data.status !== 0) {
+        shop = shopRes.data
+      }
+    } catch (err) {
+      console.warn('按shopId查询分店失败', err)
+    }
+  }
+
+  if (!shop) {
+    try {
+      const shopRes = await transaction.collection('shopInfo').limit(1).get()
+      if (shopRes.data && shopRes.data.length > 0) {
+        shop = shopRes.data[0]
+      }
+    } catch (err) {
+      console.warn('查询默认分店失败', err)
+    }
+  }
+
+  return buildShopSnapshot(shop, fallbackShopInfo)
+}
+
 // 生成打印内容
 function generatePrintContent(order, shopInfo) {
   const orderTypeText = order.orderType === 'dineIn' ? '堂食' : '打包'
@@ -88,6 +129,9 @@ function generatePrintContent(order, shopInfo) {
   content += `<C></C><BR>`
   content += `<C><font# bolder=1 height=2 width=2>${orderTypeText}订单</font#></C><BR>`
   content += `<C><font# bolder=1 height=2 width=2>${escapeHtml(shopInfo?.name || '餐饮店')}</font#></C><BR>`
+  if (shopInfo?.address) {
+    content += `<LEFT>门店地址: ${escapeHtml(shopInfo.address)}</LEFT><BR>`
+  }
   content += `<BR>`
   
   // 订单编号和时间
@@ -201,9 +245,21 @@ async function printOrder(orderId, orderData) {
     
     const printer = printerRes.data[0]
     
-    // 2. 查询店铺信息
-    const shopRes = await db.collection('shopInfo').limit(1).get()
-    const shopInfo = shopRes.data && shopRes.data.length > 0 ? shopRes.data[0] : null
+    // 2. 使用订单分店快照，兼容没有分店字段的历史订单
+    let shopInfo = orderData.shopInfo || null
+    if ((!shopInfo || !shopInfo.name) && orderData.shopId) {
+      try {
+        const shopRes = await db.collection('shopInfo').doc(orderData.shopId).get()
+        shopInfo = shopRes.data || shopInfo
+      } catch (err) {
+        console.warn('打印时查询分店失败', err)
+      }
+    }
+    if (!shopInfo || !shopInfo.name) {
+      const shopRes = await db.collection('shopInfo').limit(1).get()
+      shopInfo = shopRes.data && shopRes.data.length > 0 ? shopRes.data[0] : null
+    }
+    shopInfo = buildShopSnapshot(shopInfo, orderData.shopInfo)
     
     // 3. 生成打印内容
     const printContent = generatePrintContent(orderData, shopInfo)
@@ -251,7 +307,9 @@ exports.main = async (event, context) => {
     useMiandan,        // 是否使用免单
     payWithBalance,    // 是否使用余额支付
     tableNumber,       // 桌码号
-    orderType          // 订单类型：dineIn-堂食，takeOut-打包
+    orderType,         // 订单类型：dineIn-堂食，takeOut-打包
+    shopId,            // 分店ID
+    shopInfo           // 前端分店快照，云端查询失败时兜底
   } = event
 
   try {
@@ -309,6 +367,7 @@ exports.main = async (event, context) => {
       // 确定订单类型：如果有 tableNumber 且未指定 orderType，则默认为堂食；否则为打包
       const finalOrderType = orderType || (tableNumber ? 'dineIn' : 'takeOut')
       const date = new Date() // 记录订单创建时间
+      const shopSnapshot = await getShopSnapshot(transaction, shopId, shopInfo)
       
       const orderData = {
         type: 'order',
@@ -326,7 +385,13 @@ exports.main = async (event, context) => {
         userAvatar: user.avatarUrl || '',
         userPhone: user.phoneNumber || '',
         // 桌码号
-        tableNumber: tableNumber || ''
+        tableNumber: tableNumber || '',
+        // 分店信息
+        shopId: shopSnapshot._id || shopId || '',
+        shopName: shopSnapshot.name || '',
+        shopAddress: shopSnapshot.address || '',
+        shopPhone: shopSnapshot.phone || '',
+        shopInfo: shopSnapshot
       }
 
       const orderRes = await transaction.collection('order').add({

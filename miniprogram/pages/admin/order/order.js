@@ -85,7 +85,9 @@ Page({
       const list = (res.data || []).map(order => {
         const orderData = {
           ...order,
-          createTimeText: order.createTime ? formatTime(order.createTime) : ''
+          createTimeText: order.createTime ? formatTime(order.createTime) : '',
+          shopNameText: order.shopName || (order.shopInfo && order.shopInfo.name) || '',
+          shopAddressText: order.shopAddress || (order.shopInfo && order.shopInfo.address) || ''
         }
 
         // tags 现在直接是字符串数组，不需要额外处理
@@ -204,4 +206,3 @@ Page({
     })
   }
 })
-

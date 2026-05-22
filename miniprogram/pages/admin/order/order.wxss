@@ -245,6 +245,13 @@
   margin-top: 5rpx;
 }
 
+.order-shop-name {
+  font-size: 24rpx;
+  color: #e54d42;
+  font-weight: 500;
+  margin-bottom: 6rpx;
+}
+
 .order-print-status {
   margin-top: 8rpx;
 }
@@ -310,5 +317,4 @@
   color: #f56c6c;
   border: 1rpx solid #f56c6c;
 }
-
 
