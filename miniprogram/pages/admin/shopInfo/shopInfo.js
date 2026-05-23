@@ -1,5 +1,7 @@
 // pages/admin/shopInfo/shopInfo.js
 const db = wx.cloud.database()
+let addressSearchTimer = null
+let addressSearchRequestId = 0
 
 function createEmptyShop(sort = 1) {
   return {
@@ -11,6 +13,7 @@ function createEmptyShop(sort = 1) {
     businessHours: '',
     latitude: '',
     longitude: '',
+    locationTitle: '',
     sort,
     status: 1
   }
@@ -20,7 +23,11 @@ Page({
   data: {
     shopList: [],
     currentIndex: 0,
-    shopInfo: createEmptyShop()
+    shopInfo: createEmptyShop(),
+    addressKeyword: '',
+    addressSuggestions: [],
+    addressSearching: false,
+    addressSearchError: ''
   },
 
   onLoad() {
@@ -47,6 +54,7 @@ Page({
         businessHours: item.businessHours || '',
         latitude: item.latitude || '',
         longitude: item.longitude || '',
+        locationTitle: item.locationTitle || '',
         ...item
       }))
 
@@ -54,7 +62,10 @@ Page({
         this.setData({
           shopList: [],
           currentIndex: 0,
-          shopInfo: createEmptyShop()
+          shopInfo: createEmptyShop(),
+          addressKeyword: '',
+          addressSuggestions: [],
+          addressSearchError: ''
         })
         return
       }
@@ -65,7 +76,10 @@ Page({
       this.setData({
         shopList: list,
         currentIndex,
-        shopInfo: { ...list[currentIndex] }
+        shopInfo: { ...list[currentIndex] },
+        addressKeyword: list[currentIndex].address || '',
+        addressSuggestions: [],
+        addressSearchError: ''
       })
     } catch (err) {
       wx.hideLoading()
@@ -84,14 +98,25 @@ Page({
 
     this.setData({
       currentIndex: index,
-      shopInfo: { ...shop }
+      shopInfo: { ...shop },
+      addressKeyword: shop.address || '',
+      addressSuggestions: [],
+      addressSearchError: ''
     })
   },
 
   addShop() {
+    if (addressSearchTimer) {
+      clearTimeout(addressSearchTimer)
+    }
+
     this.setData({
       currentIndex: -1,
-      shopInfo: createEmptyShop(this.data.shopList.length + 1)
+      shopInfo: createEmptyShop(this.data.shopList.length + 1),
+      addressKeyword: '',
+      addressSuggestions: [],
+      addressSearching: false,
+      addressSearchError: ''
     })
   },
 
@@ -112,44 +137,118 @@ Page({
     })
   },
 
+  onAddressInput(e) {
+    const value = e.detail.value
+
+    if (addressSearchTimer) {
+      clearTimeout(addressSearchTimer)
+    }
+
+    this.setData({
+      addressKeyword: value,
+      'shopInfo.address': value,
+      'shopInfo.latitude': '',
+      'shopInfo.longitude': '',
+      'shopInfo.locationTitle': '',
+      addressSearchError: ''
+    })
+
+    const keyword = value.trim()
+    if (!keyword) {
+      this.setData({
+        addressSuggestions: [],
+        addressSearching: false
+      })
+      return
+    }
+
+    addressSearchTimer = setTimeout(() => {
+      this.searchAddress(keyword)
+    }, 400)
+  },
+
+  async searchAddress(input) {
+    const keyword = typeof input === 'string'
+      ? input
+      : (input && input.detail && input.detail.value) || this.data.addressKeyword
+    const query = String(keyword || '').trim()
+    if (!query) {
+      this.setData({
+        addressSuggestions: [],
+        addressSearching: false,
+        addressSearchError: ''
+      })
+      return
+    }
+
+    const requestId = ++addressSearchRequestId
+    this.setData({
+      addressSearching: true,
+      addressSearchError: ''
+    })
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'mapSearch',
+        data: {
+          action: 'suggestion',
+          keyword: query
+        }
+      })
+
+      if (requestId !== addressSearchRequestId) {
+        return
+      }
+
+      const result = res.result || {}
+      if (!result.success) {
+        this.setData({
+          addressSuggestions: [],
+          addressSearching: false,
+          addressSearchError: result.message || '地址搜索失败'
+        })
+        return
+      }
+
+      this.setData({
+        addressSuggestions: result.data || [],
+        addressSearching: false,
+        addressSearchError: ''
+      })
+    } catch (err) {
+      if (requestId !== addressSearchRequestId) {
+        return
+      }
+
+      console.error('地址搜索失败', err)
+      this.setData({
+        addressSuggestions: [],
+        addressSearching: false,
+        addressSearchError: '地址搜索失败，请检查云函数和腾讯地图 Key'
+      })
+    }
+  },
+
+  chooseAddressSuggestion(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const item = this.data.addressSuggestions[index]
+    if (!item) return
+
+    this.setData({
+      addressKeyword: item.address || item.title || '',
+      addressSuggestions: [],
+      addressSearchError: '',
+      'shopInfo.address': item.address || item.title || '',
+      'shopInfo.latitude': item.latitude,
+      'shopInfo.longitude': item.longitude,
+      'shopInfo.locationTitle': item.title || ''
+    })
+  },
+
   onStatusChange(e) {
     this.setData({
       'shopInfo.status': e.detail.value ? 1 : 0
     })
-  },
-
-  async chooseShopLocation() {
-    try {
-      const res = await new Promise((resolve, reject) => {
-        wx.chooseLocation({
-          success: resolve,
-          fail: reject
-        })
-      })
-
-      const latitude = Number(res.latitude)
-      const longitude = Number(res.longitude)
-
-      this.setData({
-        'shopInfo.address': res.address || res.name || this.data.shopInfo.address,
-        'shopInfo.latitude': Number.isFinite(latitude) ? latitude : '',
-        'shopInfo.longitude': Number.isFinite(longitude) ? longitude : ''
-      })
-
-      wx.showToast({
-        title: '已获取坐标',
-        icon: 'success'
-      })
-    } catch (err) {
-      if (err && (err.errMsg || '').includes('cancel')) {
-        return
-      }
-      console.error('地图选点失败', err)
-      wx.showToast({
-        title: '地图选点失败',
-        icon: 'none'
-      })
-    }
   },
 
   buildSaveData(shopInfo) {
@@ -157,7 +256,7 @@ Page({
     const longitudeText = String(shopInfo.longitude || '').trim()
 
     if (!latitudeText || !longitudeText) {
-      throw new Error('请先通过地图选点获取经纬度')
+      throw new Error('请先搜索并选择门店地址')
     }
 
     const latitude = latitudeText ? Number(latitudeText) : ''
@@ -179,6 +278,7 @@ Page({
       businessHours: (shopInfo.businessHours || '').trim(),
       latitude,
       longitude,
+      locationTitle: (shopInfo.locationTitle || '').trim(),
       sort: Number(shopInfo.sort || 0),
       status: shopInfo.status === 0 ? 0 : 1,
       updateTime: new Date()

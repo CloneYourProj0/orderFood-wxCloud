@@ -140,18 +140,78 @@
   background: #f7f7f7;
 }
 
-.location-action-row {
-  margin-top: 16rpx;
+.address-search-row {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
 }
 
-.location-btn {
-  display: inline-block;
-  padding: 10rpx 18rpx;
-  font-size: 24rpx;
+.address-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.address-search-btn {
+  flex-shrink: 0;
+  height: 80rpx;
+  line-height: 80rpx;
+  padding: 0 28rpx;
+  font-size: 28rpx;
   color: #e54d42;
   border: 2rpx solid #e54d42;
   border-radius: 10rpx;
   background: #fff8f7;
+}
+
+.address-search-tip,
+.address-search-error {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+}
+
+.address-search-tip {
+  color: #999;
+}
+
+.address-search-error {
+  color: #e54d42;
+}
+
+.address-suggestion-list {
+  margin-top: 16rpx;
+  border: 2rpx solid #eeeeee;
+  border-radius: 12rpx;
+  overflow: hidden;
+  background: white;
+}
+
+.address-suggestion-item {
+  padding: 18rpx 20rpx;
+  border-bottom: 2rpx solid #f1f1f1;
+}
+
+.address-suggestion-item:last-child {
+  border-bottom: 0;
+}
+
+.address-suggestion-title {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.address-suggestion-address {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.4;
+}
+
+.address-suggestion-meta {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #999;
 }
 
 .form-textarea {
