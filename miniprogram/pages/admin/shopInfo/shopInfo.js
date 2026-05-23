@@ -1,7 +1,12 @@
 // pages/admin/shopInfo/shopInfo.js
+const {
+  TENCENT_MAP_KEY,
+  TENCENT_MAP_REFERER,
+  TENCENT_MAP_CATEGORY
+} = require('../../../utils/mapConfig')
+
 const db = wx.cloud.database()
-let addressSearchTimer = null
-let addressSearchRequestId = 0
+const chooseLocation = requirePlugin('chooseLocation')
 
 function createEmptyShop(sort = 1) {
   return {
@@ -19,19 +24,48 @@ function createEmptyShop(sort = 1) {
   }
 }
 
+function hasLocation(shop = {}) {
+  const latitude = Number(shop.latitude)
+  const longitude = Number(shop.longitude)
+
+  return shop.latitude !== '' &&
+    shop.latitude !== undefined &&
+    shop.latitude !== null &&
+    shop.longitude !== '' &&
+    shop.longitude !== undefined &&
+    shop.longitude !== null &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude)
+}
+
 Page({
   data: {
     shopList: [],
     currentIndex: 0,
     shopInfo: createEmptyShop(),
-    addressKeyword: '',
-    addressSuggestions: [],
-    addressSearching: false,
-    addressSearchError: ''
+    hasShopLocation: false
   },
 
   onLoad() {
+    this.hasOpenedLocationPicker = false
+    chooseLocation.setLocation(null)
     this.loadShopInfo()
+  },
+
+  onShow() {
+    if (!this.hasOpenedLocationPicker) return
+
+    const location = chooseLocation.getLocation()
+    this.hasOpenedLocationPicker = false
+    chooseLocation.setLocation(null)
+
+    if (!location) return
+
+    this.applyLocation(location)
+  },
+
+  onUnload() {
+    chooseLocation.setLocation(null)
   },
 
   // 加载分店信息
@@ -63,9 +97,7 @@ Page({
           shopList: [],
           currentIndex: 0,
           shopInfo: createEmptyShop(),
-          addressKeyword: '',
-          addressSuggestions: [],
-          addressSearchError: ''
+          hasShopLocation: false
         })
         return
       }
@@ -77,9 +109,7 @@ Page({
         shopList: list,
         currentIndex,
         shopInfo: { ...list[currentIndex] },
-        addressKeyword: list[currentIndex].address || '',
-        addressSuggestions: [],
-        addressSearchError: ''
+        hasShopLocation: hasLocation(list[currentIndex])
       })
     } catch (err) {
       wx.hideLoading()
@@ -99,24 +129,17 @@ Page({
     this.setData({
       currentIndex: index,
       shopInfo: { ...shop },
-      addressKeyword: shop.address || '',
-      addressSuggestions: [],
-      addressSearchError: ''
+      hasShopLocation: hasLocation(shop)
     })
   },
 
   addShop() {
-    if (addressSearchTimer) {
-      clearTimeout(addressSearchTimer)
-    }
+    const shop = createEmptyShop(this.data.shopList.length + 1)
 
     this.setData({
       currentIndex: -1,
-      shopInfo: createEmptyShop(this.data.shopList.length + 1),
-      addressKeyword: '',
-      addressSuggestions: [],
-      addressSearching: false,
-      addressSearchError: ''
+      shopInfo: shop,
+      hasShopLocation: false
     })
   },
 
@@ -137,111 +160,80 @@ Page({
     })
   },
 
-  onAddressInput(e) {
-    const value = e.detail.value
-
-    if (addressSearchTimer) {
-      clearTimeout(addressSearchTimer)
-    }
-
-    this.setData({
-      addressKeyword: value,
-      'shopInfo.address': value,
-      'shopInfo.latitude': '',
-      'shopInfo.longitude': '',
-      'shopInfo.locationTitle': '',
-      addressSearchError: ''
-    })
-
-    const keyword = value.trim()
-    if (!keyword) {
-      this.setData({
-        addressSuggestions: [],
-        addressSearching: false
+  openLocationPicker() {
+    if (!this.isMapConfigReady()) {
+      wx.showToast({
+        title: '请先配置腾讯地图Key',
+        icon: 'none'
       })
       return
     }
 
-    addressSearchTimer = setTimeout(() => {
-      this.searchAddress(keyword)
-    }, 400)
-  },
+    const params = [
+      `key=${encodeURIComponent(TENCENT_MAP_KEY)}`,
+      `referer=${encodeURIComponent(TENCENT_MAP_REFERER)}`,
+      `category=${encodeURIComponent(TENCENT_MAP_CATEGORY)}`,
+      'scale=16'
+    ]
 
-  async searchAddress(input) {
-    const keyword = typeof input === 'string'
-      ? input
-      : (input && input.detail && input.detail.value) || this.data.addressKeyword
-    const query = String(keyword || '').trim()
-    if (!query) {
-      this.setData({
-        addressSuggestions: [],
-        addressSearching: false,
-        addressSearchError: ''
-      })
-      return
+    const location = this.getCurrentLocationParam()
+    if (location) {
+      params.push(`location=${encodeURIComponent(JSON.stringify(location))}`)
     }
 
-    const requestId = ++addressSearchRequestId
-    this.setData({
-      addressSearching: true,
-      addressSearchError: ''
-    })
-
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'mapSearch',
-        data: {
-          action: 'suggestion',
-          keyword: query
-        }
-      })
-
-      if (requestId !== addressSearchRequestId) {
-        return
-      }
-
-      const result = res.result || {}
-      if (!result.success) {
-        this.setData({
-          addressSuggestions: [],
-          addressSearching: false,
-          addressSearchError: result.message || '地址搜索失败'
+    this.hasOpenedLocationPicker = true
+    wx.navigateTo({
+      url: `plugin://chooseLocation/index?${params.join('&')}`,
+      fail: (err) => {
+        this.hasOpenedLocationPicker = false
+        console.error('打开腾讯地图选点插件失败', err)
+        wx.showToast({
+          title: '打开地图选点失败',
+          icon: 'none'
         })
-        return
       }
+    })
+  },
 
-      this.setData({
-        addressSuggestions: result.data || [],
-        addressSearching: false,
-        addressSearchError: ''
-      })
-    } catch (err) {
-      if (requestId !== addressSearchRequestId) {
-        return
-      }
+  isMapConfigReady() {
+    return TENCENT_MAP_KEY &&
+      TENCENT_MAP_REFERER &&
+      !/^请填写/.test(TENCENT_MAP_KEY) &&
+      !/^请填写/.test(TENCENT_MAP_REFERER)
+  },
 
-      console.error('地址搜索失败', err)
-      this.setData({
-        addressSuggestions: [],
-        addressSearching: false,
-        addressSearchError: '地址搜索失败，请检查云函数和腾讯地图 Key'
-      })
+  getCurrentLocationParam() {
+    if (!hasLocation(this.data.shopInfo)) {
+      return null
+    }
+
+    const latitude = Number(this.data.shopInfo.latitude)
+    const longitude = Number(this.data.shopInfo.longitude)
+
+    return {
+      latitude,
+      longitude
     }
   },
 
-  chooseAddressSuggestion(e) {
-    const index = Number(e.currentTarget.dataset.index)
-    const item = this.data.addressSuggestions[index]
-    if (!item) return
+  applyLocation(location) {
+    const latitude = Number(location.latitude)
+    const longitude = Number(location.longitude)
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      wx.showToast({
+        title: '地图返回位置无效',
+        icon: 'none'
+      })
+      return
+    }
 
     this.setData({
-      addressKeyword: item.address || item.title || '',
-      addressSuggestions: [],
-      addressSearchError: '',
-      'shopInfo.address': item.address || item.title || '',
-      'shopInfo.latitude': item.latitude,
-      'shopInfo.longitude': item.longitude,
-      'shopInfo.locationTitle': item.title || ''
+      'shopInfo.address': location.address || location.name || '',
+      'shopInfo.latitude': latitude,
+      'shopInfo.longitude': longitude,
+      'shopInfo.locationTitle': location.name || '',
+      hasShopLocation: true
     })
   },
 
@@ -256,7 +248,7 @@ Page({
     const longitudeText = String(shopInfo.longitude || '').trim()
 
     if (!latitudeText || !longitudeText) {
-      throw new Error('请先搜索并选择门店地址')
+      throw new Error('请先在地图中选择门店地址')
     }
 
     const latitude = latitudeText ? Number(latitudeText) : ''

@@ -42,31 +42,16 @@
 
     <view class="form-item">
       <view class="form-label">门店地址</view>
-      <view class="address-search-row">
-        <input
-          class="form-input address-input"
-          placeholder="输入门店地址或地标搜索"
-          value="{{addressKeyword}}"
-          bindinput="onAddressInput"
-          confirm-type="search"
-          bindconfirm="searchAddress"
-        />
-        <view class="address-search-btn" bindtap="searchAddress">搜索</view>
-      </view>
-      <view class="address-search-tip" wx:if="{{addressSearching}}">正在从腾讯地图拉取地址...</view>
-      <view class="address-search-error" wx:if="{{addressSearchError}}">{{addressSearchError}}</view>
-      <view class="address-suggestion-list" wx:if="{{addressSuggestions.length > 0}}">
-        <view
-          class="address-suggestion-item"
-          wx:for="{{addressSuggestions}}"
-          wx:key="_key"
-          data-index="{{index}}"
-          bindtap="chooseAddressSuggestion">
-          <view class="address-suggestion-title">{{item.title || item.address}}</view>
-          <view class="address-suggestion-address">{{item.address}}</view>
-          <view class="address-suggestion-meta">
-            {{item.city || item.province}}{{item.district ? ' · ' + item.district : ''}}
+      <view class="location-card">
+        <view class="location-info">
+          <view class="location-title">
+            {{shopInfo.locationTitle || (shopInfo.address ? '已选择门店地址' : '未选择门店地址')}}
           </view>
+          <view class="location-address" wx:if="{{shopInfo.address}}">{{shopInfo.address}}</view>
+          <view class="location-placeholder" wx:else>请通过腾讯地图搜索并选择门店位置</view>
+        </view>
+        <view class="location-picker-btn" bindtap="openLocationPicker">
+          {{hasShopLocation ? '重新选择' : '地图选点'}}
         </view>
       </view>
     </view>

@@ -69,6 +69,12 @@
     "van-icon": "/vant/icon/index",
     "van-empty": "/vant/empty/index"
   },
+  "plugins": {
+    "chooseLocation": {
+      "version": "1.2.1",
+      "provider": "wx76a9a06e5b4e693e"
+    }
+  },
   "sitemapLocation": "sitemap.json",
   "style": "v2",
   "permission": {
