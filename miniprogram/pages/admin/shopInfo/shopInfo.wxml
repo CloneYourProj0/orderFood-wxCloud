@@ -49,29 +49,28 @@
         data-field="address"
         bindinput="onFieldInput"
       />
+      <view class="location-action-row">
+        <view class="location-btn" bindtap="chooseShopLocation">腾讯地图选点并回填坐标</view>
+      </view>
     </view>
 
     <view class="form-row">
       <view class="form-item half">
         <view class="form-label">纬度</view>
         <input
-          class="form-input"
-          type="digit"
-          placeholder="如 30.657"
+          class="form-input readonly-input"
+          disabled
+          placeholder="地图选点后自动填写"
           value="{{shopInfo.latitude}}"
-          data-field="latitude"
-          bindinput="onFieldInput"
         />
       </view>
       <view class="form-item half">
         <view class="form-label">经度</view>
         <input
-          class="form-input"
-          type="digit"
-          placeholder="如 104.066"
+          class="form-input readonly-input"
+          disabled
+          placeholder="地图选点后自动填写"
           value="{{shopInfo.longitude}}"
-          data-field="longitude"
-          bindinput="onFieldInput"
         />
       </view>
     </view>

@@ -135,6 +135,25 @@
   background: white;
 }
 
+.readonly-input {
+  color: #999;
+  background: #f7f7f7;
+}
+
+.location-action-row {
+  margin-top: 16rpx;
+}
+
+.location-btn {
+  display: inline-block;
+  padding: 10rpx 18rpx;
+  font-size: 24rpx;
+  color: #e54d42;
+  border: 2rpx solid #e54d42;
+  border-radius: 10rpx;
+  background: #fff8f7;
+}
+
 .form-textarea {
   width: 100%;
   min-height: 180rpx;

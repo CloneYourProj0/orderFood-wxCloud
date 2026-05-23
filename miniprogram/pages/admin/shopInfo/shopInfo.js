@@ -118,9 +118,48 @@ Page({
     })
   },
 
+  async chooseShopLocation() {
+    try {
+      const res = await new Promise((resolve, reject) => {
+        wx.chooseLocation({
+          success: resolve,
+          fail: reject
+        })
+      })
+
+      const latitude = Number(res.latitude)
+      const longitude = Number(res.longitude)
+
+      this.setData({
+        'shopInfo.address': res.address || res.name || this.data.shopInfo.address,
+        'shopInfo.latitude': Number.isFinite(latitude) ? latitude : '',
+        'shopInfo.longitude': Number.isFinite(longitude) ? longitude : ''
+      })
+
+      wx.showToast({
+        title: '已获取坐标',
+        icon: 'success'
+      })
+    } catch (err) {
+      if (err && (err.errMsg || '').includes('cancel')) {
+        return
+      }
+      console.error('地图选点失败', err)
+      wx.showToast({
+        title: '地图选点失败',
+        icon: 'none'
+      })
+    }
+  },
+
   buildSaveData(shopInfo) {
     const latitudeText = String(shopInfo.latitude || '').trim()
     const longitudeText = String(shopInfo.longitude || '').trim()
+
+    if (!latitudeText || !longitudeText) {
+      throw new Error('请先通过地图选点获取经纬度')
+    }
+
     const latitude = latitudeText ? Number(latitudeText) : ''
     const longitude = longitudeText ? Number(longitudeText) : ''
 

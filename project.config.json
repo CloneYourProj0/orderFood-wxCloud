@@ -73,7 +73,24 @@
     "tabSize": 2
   },
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "miniprogram/images/githubImg"
+      },
+      {
+        "type": "file",
+        "value": "miniprogram/images/bg.png"
+      },
+      {
+        "type": "folder",
+        "value": "images/githubImg"
+      },
+      {
+        "type": "file",
+        "value": "images/bg.png"
+      }
+    ],
     "include": []
   },
   "appid": "wx57595aaf3f7c3344",
