@@ -172,7 +172,7 @@ Page({
     const params = [
       `key=${encodeURIComponent(TENCENT_MAP_KEY)}`,
       `referer=${encodeURIComponent(TENCENT_MAP_REFERER)}`,
-      `category=${encodeURIComponent(TENCENT_MAP_CATEGORY)}`,
+      `category=${TENCENT_MAP_CATEGORY}`,
       'scale=16'
     ]
 
