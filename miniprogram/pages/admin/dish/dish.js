@@ -1,6 +1,6 @@
 // pages/admin/dish/dish.js
 const db = wx.cloud.database()
-const { getDefaultShopId, getShopFields, buildShopScopedWhere } = require('../../../utils/shopScope.js')
+const { getDefaultShopId, getShopFields, buildShopScopedWhere, isShopScopedItem } = require('../../../utils/shopScope.js')
 
 Page({
   data: {
@@ -162,7 +162,8 @@ Page({
         }
       })
       const result = res.result || {}
-      const categories = result.success ? (result.data || []) : []
+      const categories = (result.success ? (result.data || []) : [])
+        .filter(item => isShopScopedItem(item, currentShopId, this.getDefaultShopId()))
       const currentExists = categories.some(item => item._id === this.data.currentCategoryId)
       
       // 如果有分类且没有选中分类，默认选中第一个
@@ -914,7 +915,8 @@ Page({
         }
       })
       const categoryResult = categoryRes.result || {}
-      const categories = categoryResult.success ? (categoryResult.data || []) : []
+      const categories = (categoryResult.success ? (categoryResult.data || []) : [])
+        .filter(item => isShopScopedItem(item, sourceShopId, this.getDefaultShopId()))
       const categoryMap = {}
       categories.forEach(item => {
         categoryMap[item._id] = item.name || ''

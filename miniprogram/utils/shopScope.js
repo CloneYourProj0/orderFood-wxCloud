@@ -48,9 +48,26 @@ function buildShopScopedWhere(db, shopId, defaultShopId, extra = {}) {
   ])
 }
 
+function isShopScopedItem(item = {}, shopId, defaultShopId) {
+  if (!shopId) {
+    return true
+  }
+
+  if (item.shopId === shopId) {
+    return true
+  }
+
+  if (shopId !== defaultShopId) {
+    return false
+  }
+
+  return !item.shopId
+}
+
 module.exports = {
   getDefaultShop,
   getDefaultShopId,
   getShopFields,
-  buildShopScopedWhere
+  buildShopScopedWhere,
+  isShopScopedItem
 }

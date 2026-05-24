@@ -2,7 +2,7 @@
 const app = getApp()
 const db = wx.cloud.database()
 const { normalizeShopList } = require('../../utils/location.js')
-const { getDefaultShopId, buildShopScopedWhere } = require('../../utils/shopScope.js')
+const { getDefaultShopId, buildShopScopedWhere, isShopScopedItem } = require('../../utils/shopScope.js')
 const SELECTED_SHOP_ID_KEY = 'selectedShopId'
 const SELECTED_SHOP_INFO_KEY = 'selectedShopInfo'
 
@@ -425,7 +425,8 @@ Page({
         }
       })
       const result = res.result || {}
-      const list = result.success ? (result.data || []) : []
+      const list = (result.success ? (result.data || []) : [])
+        .filter(item => isShopScopedItem(item, shopId, this.getDefaultShopId()))
       
       if (list.length > 0) {
         const firstId = list[0]._id
