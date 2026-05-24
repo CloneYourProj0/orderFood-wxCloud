@@ -201,6 +201,14 @@ Page({
 
   // 显示添加分类弹窗
   showAddCategoryModal() {
+    if (!this.data.currentShopId) {
+      wx.showToast({
+        title: '请先选择分店',
+        icon: 'none'
+      })
+      return
+    }
+
     this.setData({
       showCategoryModal: true,
       editCategoryMode: false,
@@ -248,6 +256,14 @@ Page({
   async saveCategory() {
     const { editCategoryMode, currentCategory } = this.data
     const shopFields = this.getCurrentShopFields()
+
+    if (!this.data.currentShopId) {
+      wx.showToast({
+        title: '请先选择分店',
+        icon: 'none'
+      })
+      return
+    }
 
     if (!currentCategory.name.trim()) {
       wx.showToast({
@@ -615,6 +631,14 @@ Page({
   // 保存菜品
   async saveDish() {
     const { editDishMode, currentDish } = this.data
+
+    if (!this.data.currentShopId) {
+      wx.showToast({
+        title: '请先选择分店',
+        icon: 'none'
+      })
+      return
+    }
 
     // 验证必填项：图片
     if (!currentDish.image || !currentDish.image.trim()) {
