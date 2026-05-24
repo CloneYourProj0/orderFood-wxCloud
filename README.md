@@ -241,7 +241,7 @@ wx.cloud.init({
 - `getPhoneNumber/index.js`
 - `getUserList/index.js`
 - `printBack/index.js`
-- `printManage/index.js` (这个打印机管理员云函数还需要改appid、appsecret，访问：https://open.trenditiot.com 可申请打印机 AppID、appsecret，打印小票机也是找这家买)
+- `printManage/index.js` (这个打印机管理云函数已改为商鹏模式，还需要配置商鹏 appid、appsecret，文档访问：https://www.spyun.net.cn/open/index.html)
 
 #### 4. 创建数据库集合
 
