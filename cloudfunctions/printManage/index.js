@@ -75,6 +75,10 @@ function isSuccess(result, extraSuccessCodes = []) {
   return code === 0 || extraSuccessCodes.includes(code)
 }
 
+function isDuplicatePrinterResult(result) {
+  return Number(result && result.errorcode) === 5
+}
+
 // HTTP请求封装
 async function request(options) {
   try {
@@ -239,6 +243,15 @@ exports.main = async (event, context) => {
         error: isSuccess(result, [5]) ? undefined : getErrorMessage(result, '绑定失败')
       }
     } catch (error) {
+      if (isDuplicatePrinterResult(error.data)) {
+        ctx.body = {
+          success: true,
+          data: error.data,
+          duplicate: true
+        }
+        return
+      }
+
       console.error('绑定打印机失败', error)
       ctx.body = {
         success: false,
