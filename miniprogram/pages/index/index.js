@@ -2,6 +2,7 @@
 const app = getApp()
 const db = wx.cloud.database()
 const { normalizeShopList } = require('../../utils/location.js')
+const { getDefaultShopId, buildShopScopedWhere } = require('../../utils/shopScope.js')
 const SELECTED_SHOP_ID_KEY = 'selectedShopId'
 const SELECTED_SHOP_INFO_KEY = 'selectedShopInfo'
 
@@ -57,12 +58,12 @@ Page({
     }
     
     this.loadShopInfo().then(() => {
+      this.loadMenu(false)
       this.locateNearestShop({
         silent: true,
         keepSelected: !!this.pendingShopId || this.hasStoredShop
       })
     })
-    this.loadMenu()
     this.loadUserInfo()
     this.loadNotices()
   },
@@ -117,6 +118,42 @@ Page({
     wx.setStorageSync(SELECTED_SHOP_INFO_KEY, shop)
   },
 
+  getCurrentShopId() {
+    return this.data.currentShop?._id || ''
+  },
+
+  getDefaultShopId() {
+    return getDefaultShopId(this.data.shopList)
+  },
+
+  getShopScopedWhere(extra = {}) {
+    return buildShopScopedWhere(db, this.getCurrentShopId(), this.getDefaultShopId(), extra)
+  },
+
+  handleShopChanged(previousShopId, options = {}) {
+    const currentShopId = this.getCurrentShopId()
+    const changed = previousShopId !== currentShopId
+
+    if (changed && options.clearCart) {
+      this.updateCart({})
+    }
+
+    if (changed || options.forceReload) {
+      const resetData = {
+        menuList: [],
+        currentMenuId: '',
+        goodsList: [],
+        goodsPage: 0,
+        goodsHasMore: true
+      }
+      if (changed && options.clearTable !== false) {
+        resetData.tableNumber = ''
+      }
+      this.setData(resetData)
+      this.loadMenu(false)
+    }
+  },
+
   getOrderShopInfo() {
     const shop = this.data.currentShop || this.data.shopInfo || {}
     return {
@@ -146,6 +183,7 @@ Page({
     const shopId = e.currentTarget.dataset.id
     const shop = this.data.shopList.find(item => item._id === shopId)
     if (!shop) return
+    const previousShopId = this.getCurrentShopId()
 
     this.setData({
       currentShop: shop,
@@ -157,6 +195,7 @@ Page({
       title: '已切换分店',
       icon: 'success'
     })
+    this.handleShopChanged(previousShopId, { clearCart: true })
   },
 
   locateNearestShop(options = {}) {
@@ -173,6 +212,7 @@ Page({
         }
         app.globalData.userLocation = userLocation
 
+        const previousShopId = this.getCurrentShopId()
         const shopList = normalizeShopList(this.data.shopList, userLocation)
         const storedShopId = wx.getStorageSync(SELECTED_SHOP_ID_KEY)
         const currentShopId = opts.keepSelected ? (this.data.currentShop?._id || storedShopId) : ''
@@ -193,6 +233,11 @@ Page({
         if (currentShop) {
           this.saveSelectedShop(currentShop)
         }
+
+        this.handleShopChanged(previousShopId, {
+          clearCart: !!previousShopId,
+          clearTable: !opts.silent
+        })
 
         if (!opts.silent) {
           wx.showToast({
@@ -257,22 +302,26 @@ Page({
 
     return {
       tableNumber: (params.tableNumber || params.table || params.tableNo || params.t || '').trim(),
-      shopId: (params.shopId || params.storeId || params.shop || '').trim()
+      shopId: (params.shopId || params.storeId || params.shop || params.s || '').trim()
     }
   },
 
   applyTableScene(sceneValue, showToast = true) {
     try {
       const { tableNumber, shopId } = this.parseTableScene(sceneValue)
+      let shopChanged = false
       if (shopId) {
         this.pendingShopId = shopId
         const shop = this.data.shopList.find(item => item._id === shopId)
         if (shop) {
+          const previousShopId = this.getCurrentShopId()
+          shopChanged = previousShopId && previousShopId !== shop._id
           this.setData({
             currentShop: shop,
             shopInfo: shop
           })
           this.saveSelectedShop(shop)
+          this.handleShopChanged(previousShopId, { clearCart: true })
         }
       }
 
@@ -286,8 +335,19 @@ Page({
           })
         }
       }
+
+      return {
+        tableNumber,
+        shopId,
+        shopChanged
+      }
     } catch (e) {
       console.error('解析scene参数失败', e)
+      return {
+        tableNumber: '',
+        shopId: '',
+        shopChanged: false
+      }
     }
   },
 
@@ -344,12 +404,25 @@ Page({
 
   // 加载菜品分类
   async loadMenu(showLoading = true) {
+    const shopId = this.getCurrentShopId()
+    if (this.data.shopList.length > 0 && !shopId) {
+      this.setData({
+        menuList: [],
+        currentMenuId: '',
+        goodsList: []
+      })
+      return
+    }
+
     if (showLoading) {
       wx.showLoading({ title: '加载中...' })
     }
     try {
       const res = await wx.cloud.callFunction({
-        name: 'getCategory'
+        name: 'getCategory',
+        data: {
+          shopId
+        }
       })
       const result = res.result || {}
       const list = result.success ? (result.data || []) : []
@@ -397,10 +470,10 @@ Page({
       const skip = page * pageSize
 
       const goodsRes = await db.collection('dish')
-        .where({
+        .where(this.getShopScopedWhere({
           categoryId: menuId,
           status: 1 // 1表示上架
-        })
+        }))
         .orderBy('sort', 'asc')
         .skip(skip)
         .limit(pageSize)
@@ -989,7 +1062,14 @@ Page({
         const { tableNumber } = this.parseTableScene(scene)
 
         if (tableNumber) {
-          this.applyTableScene(scene)
+          const sceneInfo = this.applyTableScene(scene)
+          if (sceneInfo.shopChanged) {
+            wx.showToast({
+              title: '已切换分店，请重新选菜',
+              icon: 'none'
+            })
+            return
+          }
           // 扫码成功后，跳转到结算页面
           setTimeout(() => {
             this.navigateToSettle()

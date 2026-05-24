@@ -19,6 +19,7 @@ let ui = {
   adminPasswordMode: localStorage.getItem(ADMIN_KEY) ? 'verify' : 'set',
   adminOpen: false,
   adminTab: 'users',
+  importSourceShopId: '',
   toast: ''
 }
 
@@ -99,14 +100,18 @@ function seedState() {
       }
     ],
     categories: [
-      { id: 'recommend', name: '店长推荐', sort: 1 },
-      { id: 'fish-soup', name: '招牌鱼汤粉', sort: 2 },
-      { id: 'beef', name: '牛肉粉', sort: 3 },
-      { id: 'snacks', name: '小吃饮品', sort: 4 }
+      { id: 'recommend', shopId: 's-main', name: '店长推荐', sort: 1 },
+      { id: 'fish-soup', shopId: 's-main', name: '招牌鱼汤粉', sort: 2 },
+      { id: 'beef', shopId: 's-main', name: '牛肉粉', sort: 3 },
+      { id: 'snacks', shopId: 's-main', name: '小吃饮品', sort: 4 },
+      { id: 'east-recommend', shopId: 's-east', name: '东门推荐', sort: 1 },
+      { id: 'east-snacks', shopId: 's-east', name: '小吃饮品', sort: 2 },
+      { id: 'south-recommend', shopId: 's-south', name: '南门推荐', sort: 1 }
     ],
     dishes: [
       {
         id: 'd-hgy',
+        shopId: 's-main',
         categoryId: 'recommend',
         name: '黄骨鱼',
         description: '鲜香鱼汤，米粉可选微辣',
@@ -119,6 +124,7 @@ function seedState() {
       },
       {
         id: 'd-hgyf',
+        shopId: 's-main',
         categoryId: 'fish-soup',
         name: '黄骨鱼汤粉',
         description: '鱼汤浓，粉量足，适合堂食',
@@ -131,6 +137,7 @@ function seedState() {
       },
       {
         id: 'd-yrou',
+        shopId: 's-main',
         categoryId: 'fish-soup',
         name: '鱼肉汤粉',
         description: '去骨鱼肉，口味清爽',
@@ -143,6 +150,7 @@ function seedState() {
       },
       {
         id: 'd-beef',
+        shopId: 's-main',
         categoryId: 'beef',
         name: '卤牛肉粉',
         description: '卤香牛肉片，汤底醇厚',
@@ -155,6 +163,7 @@ function seedState() {
       },
       {
         id: 'd-egg',
+        shopId: 's-main',
         categoryId: 'snacks',
         name: '卤蛋',
         description: '小份加餐',
@@ -167,6 +176,7 @@ function seedState() {
       },
       {
         id: 'd-drink',
+        shopId: 's-main',
         categoryId: 'snacks',
         name: '冰柠茶',
         description: '酸甜解腻',
@@ -176,6 +186,45 @@ function seedState() {
         status: 1,
         image: '',
         tags: ['少冰', '常温']
+      },
+      {
+        id: 'd-east-fish',
+        shopId: 's-east',
+        categoryId: 'east-recommend',
+        name: '东门酸菜鱼粉',
+        description: '酸汤开胃，午市热卖',
+        price: 17,
+        originalPrice: 19,
+        canUseMiandan: false,
+        status: 1,
+        image: defaultDishImage,
+        tags: ['微辣', '加粉']
+      },
+      {
+        id: 'd-east-tea',
+        shopId: 's-east',
+        categoryId: 'east-snacks',
+        name: '东门冰豆花',
+        description: '门店限定小吃',
+        price: 8,
+        originalPrice: 0,
+        canUseMiandan: false,
+        status: 1,
+        image: '',
+        tags: ['少糖', '常温']
+      },
+      {
+        id: 'd-south-beef',
+        shopId: 's-south',
+        categoryId: 'south-recommend',
+        name: '南门牛腩粉',
+        description: '牛腩软烂，汤底浓',
+        price: 18,
+        originalPrice: 20,
+        canUseMiandan: true,
+        status: 1,
+        image: defaultDishImage,
+        tags: ['微辣', '要葱']
       }
     ],
     rechargeOptions: [
@@ -184,7 +233,13 @@ function seedState() {
       { id: 'r-100', amount: 100, giveAmount: 18, status: 1 },
       { id: 'r-200', amount: 200, giveAmount: 48, status: 1 }
     ],
-    tableNumbers: ['01', '02', '03', '04', 'A01'],
+    tableNumbers: [
+      { id: 't-main-01', shopId: 's-main', tableNumber: '01' },
+      { id: 't-main-02', shopId: 's-main', tableNumber: '02' },
+      { id: 't-east-01', shopId: 's-east', tableNumber: '01' },
+      { id: 't-east-a01', shopId: 's-east', tableNumber: 'A01' },
+      { id: 't-south-01', shopId: 's-south', tableNumber: '01' }
+    ],
     cart: {},
     orders: []
   }
@@ -197,7 +252,7 @@ function loadState() {
 
   try {
     const parsed = JSON.parse(raw)
-    return {
+    const merged = {
       ...fallback,
       ...parsed,
       shopInfo: { ...fallback.shopInfo, ...(parsed.shopInfo || {}) },
@@ -212,6 +267,34 @@ function loadState() {
       dishes: Array.isArray(parsed.dishes) && parsed.dishes.length ? parsed.dishes : fallback.dishes,
       rechargeOptions: Array.isArray(parsed.rechargeOptions) && parsed.rechargeOptions.length ? parsed.rechargeOptions : fallback.rechargeOptions
     }
+    const defaultShop = (merged.shopList || []).find((shop) => shop.status !== 0) || merged.shopList?.[0]
+    const defaultShopId = defaultShop?.id || fallback.currentShopId
+
+    merged.categories = (merged.categories || []).map((category) => ({
+      ...category,
+      shopId: category.shopId || defaultShopId
+    }))
+    merged.dishes = (merged.dishes || []).map((dish) => ({
+      ...dish,
+      shopId: dish.shopId || defaultShopId
+    }))
+    merged.tableNumbers = (merged.tableNumbers || []).map((item, index) => {
+      if (typeof item === 'string') {
+        return {
+          id: `t-legacy-${index}`,
+          shopId: defaultShopId,
+          tableNumber: item
+        }
+      }
+
+      return {
+        ...item,
+        shopId: item.shopId || defaultShopId,
+        tableNumber: item.tableNumber || item.number || ''
+      }
+    })
+
+    return merged
   } catch (err) {
     console.warn('H5 state parse failed', err)
     return fallback
@@ -290,6 +373,44 @@ function currentShop() {
   return shop
 }
 
+function defaultShopId() {
+  const shop = (state.shopList || []).find((item) => item.status !== 0) || state.shopList?.[0]
+  return shop?.id || ''
+}
+
+function isForShop(item, shopId) {
+  if (!shopId) return true
+  if (item.shopId === shopId) return true
+  return !item.shopId && shopId === defaultShopId()
+}
+
+function categoriesForShop(shopId = currentShop().id) {
+  return (state.categories || [])
+    .filter((category) => isForShop(category, shopId))
+    .sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0))
+}
+
+function dishesForShop(shopId = currentShop().id, includeOffline = true) {
+  return (state.dishes || [])
+    .filter((dish) => isForShop(dish, shopId))
+    .filter((dish) => includeOffline || dish.status !== 0)
+    .sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0))
+}
+
+function tableNumbersForShop(shopId = currentShop().id) {
+  return (state.tableNumbers || [])
+    .filter((item) => isForShop(item, shopId))
+    .map((item) => typeof item === 'string' ? item : item.tableNumber)
+    .filter(Boolean)
+}
+
+function ensureCategoryForCurrentShop() {
+  const categories = categoriesForShop()
+  if (!categories.some((category) => category.id === ui.categoryId)) {
+    ui.categoryId = categories[0]?.id || ''
+  }
+}
+
 function syncShopInfoFromCurrent() {
   const shop = currentShop()
   state.shopInfo = {
@@ -322,8 +443,15 @@ function shopsForDisplay() {
 function selectShop(shopId) {
   const shop = state.shopList.find((item) => item.id === shopId && item.status !== 0)
   if (!shop) return
+  const previousShopId = state.currentShopId
   state.currentShopId = shop.id
   syncShopInfoFromCurrent()
+  if (previousShopId !== shop.id) {
+    state.cart = {}
+    ui.cartOpen = false
+    ui.checkout = null
+    ensureCategoryForCurrentShop()
+  }
   ui.shopSelectorOpen = false
   saveState()
   showToast('已切换分店')
@@ -345,8 +473,15 @@ function locateNearestShop() {
     }
     const nearest = shopsForDisplay()[0]
     if (nearest) {
+      const previousShopId = state.currentShopId
       state.currentShopId = nearest.id
       syncShopInfoFromCurrent()
+      if (previousShopId !== nearest.id) {
+        state.cart = {}
+        ui.cartOpen = false
+        ui.checkout = null
+        ensureCategoryForCurrentShop()
+      }
       saveState()
     }
     ui.locating = false
@@ -377,7 +512,7 @@ function updateCurrentUser(patch) {
 }
 
 function activeDishes() {
-  return state.dishes.filter((dish) => dish.status !== 0)
+  return dishesForShop(currentShop().id, false)
 }
 
 function findDish(dishId) {
@@ -469,10 +604,11 @@ function openCheckout() {
   }
 
   ui.cartOpen = false
+  const tableNumbers = tableNumbersForShop()
   ui.checkout = {
     payMethod: defaultPayMethod(),
     shopId: currentShop().id,
-    tableNumber: state.tableNumbers[1] || '02',
+    tableNumber: tableNumbers[0] || '',
     orderType: 'dineIn'
   }
   render()
@@ -688,8 +824,10 @@ function renderTabbar() {
 }
 
 function renderOrder() {
+  ensureCategoryForCurrentShop()
   const user = currentUser()
   const shop = currentShop()
+  const categories = categoriesForShop()
   const dishes = activeDishes().filter((dish) => dish.categoryId === ui.categoryId)
 
   return `
@@ -709,7 +847,7 @@ function renderOrder() {
     </div>
     <div class="dish-layout">
       <aside class="category-list">
-        ${state.categories.map((category) => `
+        ${categories.map((category) => `
           <button class="category-btn ${ui.categoryId === category.id ? 'active' : ''}" data-category="${category.id}">
             ${escapeHtml(category.name)}
           </button>
@@ -1202,8 +1340,24 @@ function renderAdminUsers() {
 }
 
 function renderAdminDishes() {
+  const shop = currentShop()
+  const categories = categoriesForShop(shop.id)
+  const dishes = dishesForShop(shop.id)
+  const sourceShops = (state.shopList || []).filter((item) => item.status !== 0 && item.id !== shop.id)
+  const sourceShopId = sourceShops.some((item) => item.id === ui.importSourceShopId)
+    ? ui.importSourceShopId
+    : sourceShops[0]?.id || ''
+  const sourceDishes = sourceShopId ? dishesForShop(sourceShopId).filter((dish) => dish.status !== 0) : []
+  const sourceCategories = categoriesForShop(sourceShopId)
+
   return `
     <div class="admin-section">
+      <div class="admin-card">
+        <h3>当前分店</h3>
+        <div class="tag-row">
+          ${state.shopList.map((item) => `<button class="filter-btn ${item.id === shop.id ? 'active' : ''}" data-action="admin-select-shop" data-shop="${item.id}">${escapeHtml(item.name || '未命名分店')}</button>`).join('')}
+        </div>
+      </div>
       <div class="admin-card">
         <h3>添加菜品</h3>
         <div class="form-grid">
@@ -1219,7 +1373,7 @@ function renderAdminDishes() {
             <div class="form-row">
               <label for="admin-dish-category">分类</label>
               <select id="admin-dish-category" class="select">
-                ${state.categories.map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`).join('')}
+                ${categories.map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -1227,12 +1381,37 @@ function renderAdminDishes() {
         </div>
       </div>
       <div class="admin-card">
+        <h3>从其他分店导入</h3>
+        ${sourceShops.length ? `
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="admin-import-source">来源分店</label>
+              <select id="admin-import-source" class="select" data-admin-import-source>
+                ${sourceShops.map((item) => `<option value="${item.id}" ${item.id === sourceShopId ? 'selected' : ''}>${escapeHtml(item.name || '未命名分店')}</option>`).join('')}
+              </select>
+            </div>
+            <div class="import-check-list">
+              ${sourceDishes.length ? sourceDishes.map((dish) => {
+                const category = sourceCategories.find((item) => item.id === dish.categoryId)
+                return `
+                  <label class="import-check-row">
+                    <input type="checkbox" data-import-dish="${dish.id}" />
+                    <span>${escapeHtml(dish.name)} · ${escapeHtml(category?.name || dish.categoryName || '未分类')} · ¥${money(dish.price)}</span>
+                  </label>
+                `
+              }).join('') : '<div class="empty">来源分店暂无菜品</div>'}
+            </div>
+            <button class="primary-btn" data-action="admin-import-dishes" ${sourceDishes.length ? '' : 'disabled'}>导入选中菜品</button>
+          </div>
+        ` : '<div class="empty">暂无其他分店可导入</div>'}
+      </div>
+      <div class="admin-card">
         <h3>菜品列表</h3>
-        ${state.dishes.map((dish) => `
+        ${dishes.map((dish) => `
           <div class="dish-admin-row">
             <div>
               <strong>${escapeHtml(dish.name)}</strong>
-              <div class="order-time">¥${money(dish.price)} · ${escapeHtml(state.categories.find((category) => category.id === dish.categoryId)?.name || '')}</div>
+              <div class="order-time">¥${money(dish.price)} · ${escapeHtml(categories.find((category) => category.id === dish.categoryId)?.name || '')}</div>
               <div class="tag-row" style="margin-top: 6px;">
                 ${dish.canUseMiandan ? '<span class="pill free">免单</span>' : ''}
                 <span class="pill ${dish.status === 0 ? '' : 'green'}">${dish.status === 0 ? '已下架' : '已上架'}</span>
@@ -1400,6 +1579,11 @@ document.addEventListener('change', (event) => {
   if (field && ui.checkout) {
     ui.checkout[field] = event.target.value
   }
+
+  if (Object.prototype.hasOwnProperty.call(event.target.dataset, 'adminImportSource')) {
+    ui.importSourceShopId = event.target.value
+    render()
+  }
 })
 
 function handleAction(target) {
@@ -1453,6 +1637,7 @@ function handleAction(target) {
   if (action === 'admin-tab') ui.adminTab = target.dataset.tab
   if (action === 'admin-save-user') adminSaveUser(target.dataset.user)
   if (action === 'admin-add-dish') adminAddDish()
+  if (action === 'admin-import-dishes') adminImportDishes()
   if (action === 'admin-toggle-dish') adminToggleDish(target.dataset.dish)
   if (action === 'admin-delete-dish') adminDeleteDish(target.dataset.dish)
   if (action === 'admin-select-shop') adminSelectShop(target.dataset.shop)
@@ -1497,6 +1682,7 @@ function confirmOk() {
       adminPasswordMode: 'set',
       adminOpen: false,
       adminTab: 'users',
+      importSourceShopId: '',
       toast: ''
     }
     saveState()
@@ -1556,15 +1742,24 @@ function adminSaveUser(userId) {
 function adminAddDish() {
   const name = (document.getElementById('admin-dish-name')?.value || '').trim()
   const price = Number(document.getElementById('admin-dish-price')?.value || 0)
-  const categoryId = document.getElementById('admin-dish-category')?.value || state.categories[0]?.id
+  const shop = currentShop()
+  const categories = categoriesForShop(shop.id)
+  const categoryId = document.getElementById('admin-dish-category')?.value || categories[0]?.id
 
   if (!name || price <= 0) {
     showToast('请填写菜品名和价格')
     return
   }
 
+  if (!categoryId) {
+    showToast('当前分店暂无分类')
+    return
+  }
+
   state.dishes.unshift({
     id: `d-${Date.now()}`,
+    shopId: shop.id,
+    shopName: shop.name,
     categoryId,
     name,
     description: '后台新增菜品',
@@ -1577,6 +1772,72 @@ function adminAddDish() {
   })
   saveState()
   showToast('菜品已添加')
+}
+
+function adminEnsureCategory(sourceCategory, targetShop) {
+  const categoryName = sourceCategory?.name || '未分类'
+  let targetCategory = categoriesForShop(targetShop.id).find((item) => item.name === categoryName)
+  if (targetCategory) return targetCategory
+
+  targetCategory = {
+    id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    shopId: targetShop.id,
+    shopName: targetShop.name,
+    name: categoryName,
+    sort: Number(sourceCategory?.sort || categoriesForShop(targetShop.id).length + 1)
+  }
+  state.categories.push(targetCategory)
+  return targetCategory
+}
+
+function adminImportDishes() {
+  const targetShop = currentShop()
+  const sourceShopId = document.getElementById('admin-import-source')?.value || ui.importSourceShopId
+  if (!sourceShopId || sourceShopId === targetShop.id) {
+    showToast('请选择其他分店')
+    return
+  }
+
+  const selectedIds = Array.from(document.querySelectorAll('[data-import-dish]:checked')).map((input) => input.dataset.importDish)
+  if (selectedIds.length === 0) {
+    showToast('请选择菜品')
+    return
+  }
+
+  const sourceCategories = categoriesForShop(sourceShopId)
+  let importedCount = 0
+  let skippedCount = 0
+
+  selectedIds.forEach((dishId) => {
+    const sourceDish = state.dishes.find((dish) => dish.id === dishId)
+    if (!sourceDish) return
+
+    if (state.dishes.some((dish) => dish.shopId === targetShop.id && dish.sourceDishId === sourceDish.id)) {
+      skippedCount += 1
+      return
+    }
+
+    const sourceCategory = sourceCategories.find((category) => category.id === sourceDish.categoryId)
+    const targetCategory = adminEnsureCategory(sourceCategory, targetShop)
+    const newDish = {
+      ...sourceDish,
+      id: `d-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      shopId: targetShop.id,
+      shopName: targetShop.name,
+      categoryId: targetCategory.id,
+      categoryName: targetCategory.name,
+      sourceShopId,
+      sourceDishId: sourceDish.id,
+      sourceShopName: state.shopList.find((shop) => shop.id === sourceShopId)?.name || '',
+      createTime: new Date().toISOString()
+    }
+    state.dishes.unshift(newDish)
+    importedCount += 1
+  })
+
+  saveState()
+  render()
+  showToast(skippedCount ? `导入${importedCount}个，跳过${skippedCount}个` : `导入${importedCount}个`)
 }
 
 function adminToggleDish(dishId) {
@@ -1596,8 +1857,16 @@ function adminDeleteDish(dishId) {
 function adminSelectShop(shopId) {
   const shop = state.shopList.find((item) => item.id === shopId)
   if (!shop) return
+  const previousShopId = state.currentShopId
   state.currentShopId = shop.id
   syncShopInfoFromCurrent()
+  if (previousShopId !== shop.id) {
+    state.cart = {}
+    ui.cartOpen = false
+    ui.checkout = null
+    ensureCategoryForCurrentShop()
+    ui.importSourceShopId = ''
+  }
   saveState()
 }
 
@@ -1618,6 +1887,7 @@ function adminAddShop() {
   state.shopList.push(shop)
   state.currentShopId = shop.id
   syncShopInfoFromCurrent()
+  ensureCategoryForCurrentShop()
   saveState()
   showToast('已新增分店')
 }

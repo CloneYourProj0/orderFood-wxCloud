@@ -1,8 +1,12 @@
 // pages/admin/tableCode/tableCode.js
 const db = wx.cloud.database()
+const { getDefaultShopId, getShopFields, buildShopScopedWhere } = require('../../../utils/shopScope.js')
 
 Page({
   data: {
+    shopList: [],
+    currentShopId: '',
+    currentShopIndex: 0,
     tableCodeList: [],
     showAddModal: false,
     newTableNumber: '',
@@ -14,11 +18,75 @@ Page({
   },
 
   onLoad() {
-    this.loadTableCodeList()
+    this.initPageData()
   },
 
   onShow() {
-    this.loadTableCodeList()
+    this.initPageData()
+  },
+
+  async initPageData() {
+    await this.loadShopList()
+    await this.loadTableCodeList()
+  },
+
+  getCurrentShop() {
+    return this.data.shopList.find(item => item._id === this.data.currentShopId) || null
+  },
+
+  getDefaultShopId() {
+    return getDefaultShopId(this.data.shopList)
+  },
+
+  getCurrentShopFields() {
+    return getShopFields(this.getCurrentShop())
+  },
+
+  getTableCodeWhere(extra = {}) {
+    return buildShopScopedWhere(db, this.data.currentShopId, this.getDefaultShopId(), extra)
+  },
+
+  async loadShopList() {
+    try {
+      const res = await db.collection('shopInfo')
+        .orderBy('sort', 'asc')
+        .limit(100)
+        .get()
+      const shopList = (res.data || []).map((item, index) => ({
+        status: typeof item.status === 'undefined' ? 1 : item.status,
+        sort: typeof item.sort === 'undefined' ? index + 1 : item.sort,
+        ...item
+      }))
+      const activeList = shopList.filter(item => item.status !== 0)
+      const usableList = activeList.length ? activeList : shopList
+      const currentShop = usableList.find(item => item._id === this.data.currentShopId) || usableList[0] || null
+      const currentShopIndex = currentShop ? shopList.findIndex(item => item._id === currentShop._id) : 0
+
+      this.setData({
+        shopList,
+        currentShopId: currentShop ? currentShop._id : '',
+        currentShopIndex: currentShopIndex >= 0 ? currentShopIndex : 0
+      })
+    } catch (err) {
+      console.error('加载分店失败', err)
+      wx.showToast({
+        title: '加载分店失败',
+        icon: 'none'
+      })
+    }
+  },
+
+  async onShopPickerChange(e) {
+    const index = Number(e.detail.value)
+    const shop = this.data.shopList[index]
+    if (!shop) return
+
+    this.setData({
+      currentShopId: shop._id,
+      currentShopIndex: index,
+      tableCodeList: []
+    })
+    await this.loadTableCodeList()
   },
 
   // 加载桌码列表
@@ -27,6 +95,7 @@ Page({
       wx.showLoading({ title: '加载中...' })
 
       const res = await db.collection('tableCode')
+        .where(this.getTableCodeWhere())
         .orderBy('createTime', 'desc')
         .get()
 
@@ -45,6 +114,7 @@ Page({
 
       const list = (res.data || []).map(item => ({
         ...item,
+        shopNameText: item.shopName || this.getCurrentShop()?.name || '',
         createTimeText: item.createTime ? formatTime(item.createTime) : ''
       }))
 
@@ -105,9 +175,9 @@ Page({
       wx.showLoading({ title: '检查中...' })
 
       const checkRes = await db.collection('tableCode')
-        .where({
+        .where(this.getTableCodeWhere({
           tableNumber: tableNumber
-        })
+        }))
         .get()
 
       if (checkRes.data && checkRes.data.length > 0) {
@@ -121,11 +191,20 @@ Page({
 
       // 生成小程序码
       wx.showLoading({ title: '生成小程序码中...' })
+      const scene = `t=${encodeURIComponent(tableNumber)}&s=${encodeURIComponent(this.data.currentShopId || '')}`
+      if (scene.length > 32) {
+        wx.hideLoading()
+        wx.showToast({
+          title: '桌码号过长',
+          icon: 'none'
+        })
+        return
+      }
 
       const codeRes = await wx.cloud.callFunction({
         name: 'get_code',
         data: {
-          scene: `${tableNumber}`,
+          scene,
           page: 'pages/index/index'
         }
       })
@@ -147,6 +226,7 @@ Page({
           tableNumber: tableNumber,
           qrCodeUrl: qrCodeUrl,
           posterUrl: '', // 海报URL在onImgOK中更新
+          ...this.getCurrentShopFields(),
           createTime: db.serverDate()
         }
       })
@@ -457,4 +537,3 @@ Page({
     })
   }
 })
-

@@ -1,5 +1,15 @@
 <!--pages/admin/tableCode/tableCode.wxml-->
 <view class="page">
+  <view class="shop-filter-bar">
+    <picker mode="selector" range="{{shopList}}" range-key="name" value="{{currentShopIndex}}" bindchange="onShopPickerChange">
+      <view class="shop-picker">
+        <view class="shop-picker-label">当前分店</view>
+        <view class="shop-picker-name">{{shopList[currentShopIndex].name || '请选择分店'}}</view>
+        <view class="shop-picker-arrow">切换</view>
+      </view>
+    </picker>
+  </view>
+
   <!-- 新建桌码按钮 -->
   <view class="header-bar">
     <view class="add-btn" bindtap="showAddModal">
@@ -13,6 +23,7 @@
       <view class="item-content">
         <view class="code-info">
           <view class="code-number">桌码号：{{item.tableNumber}}</view>
+          <view class="code-shop" wx:if="{{item.shopNameText}}">分店：{{item.shopNameText}}</view>
           <view class="code-time">{{item.createTimeText}}</view>
         </view>
         <view class="item-actions">
@@ -62,4 +73,3 @@
     widthPixels="520" 
   />
 </view>
-

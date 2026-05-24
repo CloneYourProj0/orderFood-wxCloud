@@ -1,8 +1,13 @@
 // pages/admin/dish/dish.js
 const db = wx.cloud.database()
+const { getDefaultShopId, getShopFields, buildShopScopedWhere } = require('../../../utils/shopScope.js')
 
 Page({
   data: {
+    shopList: [],
+    currentShopId: '',
+    currentShopIndex: 0,
+
     // 分类相关
     categories: [],
     currentCategoryId: '', // 当前选中的分类ID
@@ -18,20 +23,20 @@ Page({
     dishes: [],
     showDishModal: false,
     editDishMode: false,
-      currentDish: {
-        _id: '',
-        name: '',
-        price: '',
-        originalPrice: '',
-        description: '',
-        categoryId: '',
-        categoryName: '',
-        image: '',
-        status: 1, // 1: 上架, 0: 下架
-        sort: 0,
-        tags: [], // 标签数组
-        canUseMiandan: false // 是否可以参与免单
-      },
+    currentDish: {
+      _id: '',
+      name: '',
+      price: '',
+      originalPrice: '',
+      description: '',
+      categoryId: '',
+      categoryName: '',
+      image: '',
+      status: 1, // 1: 上架, 0: 下架
+      sort: 0,
+      tags: [], // 标签数组
+      canUseMiandan: false // 是否可以参与免单
+    },
     
     // 标签编辑
     showTagModal: false,
@@ -47,17 +52,101 @@ Page({
     dishPage: 0,
     dishPageSize: 20,
     dishHasMore: true,
-    loadingDishes: false
+    loadingDishes: false,
+
+    showImportModal: false,
+    importSourceIndex: 0,
+    importSourceShopId: '',
+    importSourceList: [],
+    importCategories: [],
+    importDishes: [],
+    selectedImportDishIds: {},
+    importSelectedCount: 0,
+    loadingImportDishes: false
   },
 
   onLoad() {
-    this.loadCategories()
-    this.loadDishes()
+    this.initPageData()
   },
 
   onShow() {
-    this.loadCategories()
-    this.loadDishes()
+    this.initPageData()
+  },
+
+  async initPageData() {
+    await this.loadShopList()
+    await this.loadCategories()
+  },
+
+  getCurrentShop() {
+    return this.data.shopList.find(item => item._id === this.data.currentShopId) || null
+  },
+
+  getDefaultShopId() {
+    return getDefaultShopId(this.data.shopList)
+  },
+
+  getShopScopedWhere(shopId, extra = {}) {
+    return buildShopScopedWhere(db, shopId, this.getDefaultShopId(), extra)
+  },
+
+  getCurrentShopScopedWhere(extra = {}) {
+    return this.getShopScopedWhere(this.data.currentShopId, extra)
+  },
+
+  getCurrentShopFields() {
+    return getShopFields(this.getCurrentShop())
+  },
+
+  async loadShopList() {
+    try {
+      const res = await db.collection('shopInfo')
+        .orderBy('sort', 'asc')
+        .limit(100)
+        .get()
+      const shopList = (res.data || []).map((item, index) => ({
+        status: typeof item.status === 'undefined' ? 1 : item.status,
+        sort: typeof item.sort === 'undefined' ? index + 1 : item.sort,
+        ...item
+      }))
+      const activeList = shopList.filter(item => item.status !== 0)
+      const usableList = activeList.length ? activeList : shopList
+      const currentShopId = this.data.currentShopId
+      const currentShop = usableList.find(item => item._id === currentShopId) || usableList[0] || null
+      const currentShopIndex = currentShop ? shopList.findIndex(item => item._id === currentShop._id) : 0
+
+      this.setData({
+        shopList,
+        currentShopId: currentShop ? currentShop._id : '',
+        currentShopIndex: currentShopIndex >= 0 ? currentShopIndex : 0
+      })
+    } catch (err) {
+      console.error('加载分店失败', err)
+      wx.showToast({
+        title: '加载分店失败',
+        icon: 'none'
+      })
+    }
+  },
+
+  async onShopPickerChange(e) {
+    const index = Number(e.detail.value)
+    const shop = this.data.shopList[index]
+    if (!shop) return
+
+    this.setData({
+      currentShopId: shop._id,
+      currentShopIndex: index,
+      currentCategoryId: '',
+      categories: [],
+      dishes: []
+    })
+    await this.loadCategories()
+  },
+
+  getShopNameById(shopId) {
+    const shop = this.data.shopList.find(item => item._id === shopId)
+    return shop ? shop.name || '' : ''
   },
 
   // ==================== 分类管理 ====================
@@ -65,14 +154,19 @@ Page({
   // 加载分类列表
   async loadCategories() {
     try {
+      const currentShopId = this.data.currentShopId
       const res = await wx.cloud.callFunction({
-        name: 'getCategory'
+        name: 'getCategory',
+        data: {
+          shopId: currentShopId
+        }
       })
       const result = res.result || {}
       const categories = result.success ? (result.data || []) : []
+      const currentExists = categories.some(item => item._id === this.data.currentCategoryId)
       
       // 如果有分类且没有选中分类，默认选中第一个
-      if (categories.length > 0 && !this.data.currentCategoryId) {
+      if (categories.length > 0 && (!this.data.currentCategoryId || !currentExists)) {
         this.setData({
           categories: categories,
           currentCategoryId: categories[0]._id
@@ -81,7 +175,9 @@ Page({
         })
       } else {
         this.setData({
-          categories: categories
+          categories: categories,
+          currentCategoryId: categories.length > 0 ? this.data.currentCategoryId : '',
+          dishes: categories.length > 0 ? this.data.dishes : []
         }, () => {
           if (this.data.currentCategoryId) {
             this.loadDishes()
@@ -151,6 +247,7 @@ Page({
   // 保存分类
   async saveCategory() {
     const { editCategoryMode, currentCategory } = this.data
+    const shopFields = this.getCurrentShopFields()
 
     if (!currentCategory.name.trim()) {
       wx.showToast({
@@ -167,7 +264,11 @@ Page({
         // 编辑
         const { _id, _openid,...updateData } = currentCategory
         await db.collection('dishCategory').doc(_id).update({
-          data: updateData
+          data: {
+            ...updateData,
+            ...shopFields,
+            updateTime: new Date()
+          }
         })
       } else {
         // 添加
@@ -175,6 +276,7 @@ Page({
           data: {
             name: currentCategory.name,
             sort: currentCategory.sort,
+            ...shopFields,
             createTime: new Date()
           }
         })
@@ -267,9 +369,9 @@ Page({
       const skip = page * pageSize
 
       const res = await db.collection('dish')
-        .where({
+        .where(this.getCurrentShopScopedWhere({
           categoryId: this.data.currentCategoryId
-        })
+        }))
         .orderBy('sort', 'asc')
         .skip(skip)
         .limit(pageSize)
@@ -306,6 +408,7 @@ Page({
     }
 
     const currentCategory = this.data.categories.find(c => c._id === this.data.currentCategoryId)
+    const shopFields = this.getCurrentShopFields()
 
     this.setData({
       showDishModal: true,
@@ -322,7 +425,8 @@ Page({
         status: 1,
         sort: this.data.dishes.length,
         tags: [],
-        canUseMiandan: false // 是否可以参与免单
+        canUseMiandan: false, // 是否可以参与免单
+        ...shopFields
       }
     })
   },
@@ -621,15 +725,20 @@ Page({
     try {
       wx.showLoading({ title: '保存中...' })
       const { _id, _openid, ...updateData } = currentDish
+      const shopFields = this.getCurrentShopFields()
       // 确保价格和原价是数字类型
       updateData.price = price
       updateData.originalPrice = originalPrice
+      Object.assign(updateData, shopFields)
       
       if (editDishMode) {
         // 编辑（去掉 _id 和 _openid 等系统字段）
         
         await db.collection('dish').doc(_id).update({
-          data: updateData
+          data: {
+            ...updateData,
+            updateTime: new Date()
+          }
         })
       } else {
         // 添加
@@ -691,6 +800,287 @@ Page({
         }
       }
     })
+  },
+
+  // ==================== 菜品导入 ====================
+
+  buildImportSourceList() {
+    return this.data.shopList.filter(item => item.status !== 0 && item._id !== this.data.currentShopId)
+  },
+
+  async showImportDishModal() {
+    const importSourceList = this.buildImportSourceList()
+    if (importSourceList.length === 0) {
+      wx.showToast({
+        title: '暂无其他分店可导入',
+        icon: 'none'
+      })
+      return
+    }
+
+    const sourceShop = importSourceList[0]
+    this.setData({
+      showImportModal: true,
+      importSourceList,
+      importSourceIndex: 0,
+      importSourceShopId: sourceShop._id,
+      importCategories: [],
+      importDishes: [],
+      selectedImportDishIds: {},
+      importSelectedCount: 0
+    })
+    await this.loadImportDishes()
+  },
+
+  closeImportDishModal() {
+    this.setData({
+      showImportModal: false,
+      importCategories: [],
+      importDishes: [],
+      selectedImportDishIds: {},
+      importSelectedCount: 0
+    })
+  },
+
+  async onImportSourceChange(e) {
+    const index = Number(e.detail.value)
+    const shop = this.data.importSourceList[index]
+    if (!shop) return
+
+    this.setData({
+      importSourceIndex: index,
+      importSourceShopId: shop._id,
+      selectedImportDishIds: {},
+      importSelectedCount: 0
+    })
+    await this.loadImportDishes()
+  },
+
+  async queryDishesByShop(shopId) {
+    const pageSize = 100
+    let page = 0
+    let list = []
+
+    while (true) {
+      const res = await db.collection('dish')
+        .where(this.getShopScopedWhere(shopId))
+        .orderBy('sort', 'asc')
+        .skip(page * pageSize)
+        .limit(pageSize)
+        .get()
+      const data = res.data || []
+      list = list.concat(data)
+      if (data.length < pageSize) break
+      page += 1
+    }
+
+    return list
+  },
+
+  async loadImportDishes() {
+    const sourceShopId = this.data.importSourceShopId
+    if (!sourceShopId) return
+
+    try {
+      this.setData({ loadingImportDishes: true })
+      const categoryRes = await wx.cloud.callFunction({
+        name: 'getCategory',
+        data: {
+          shopId: sourceShopId
+        }
+      })
+      const categoryResult = categoryRes.result || {}
+      const categories = categoryResult.success ? (categoryResult.data || []) : []
+      const categoryMap = {}
+      categories.forEach(item => {
+        categoryMap[item._id] = item.name || ''
+      })
+
+      const dishes = await this.queryDishesByShop(sourceShopId)
+      this.setData({
+        importCategories: categories,
+        importDishes: dishes.map(item => ({
+          ...item,
+          importCategoryName: categoryMap[item.categoryId] || item.categoryName || '未分类'
+        }))
+      })
+    } catch (err) {
+      console.error('加载导入菜品失败', err)
+      wx.showToast({
+        title: '加载导入菜品失败',
+        icon: 'none'
+      })
+    } finally {
+      this.setData({ loadingImportDishes: false })
+    }
+  },
+
+  updateImportSelectedCount(selectedImportDishIds) {
+    const count = Object.keys(selectedImportDishIds).filter(key => selectedImportDishIds[key]).length
+    this.setData({
+      selectedImportDishIds,
+      importSelectedCount: count
+    })
+  },
+
+  toggleImportDish(e) {
+    const id = e.currentTarget.dataset.id
+    if (!id) return
+    const selectedImportDishIds = { ...this.data.selectedImportDishIds }
+    selectedImportDishIds[id] = !selectedImportDishIds[id]
+    this.updateImportSelectedCount(selectedImportDishIds)
+  },
+
+  toggleSelectAllImportDishes() {
+    const allSelected = this.data.importDishes.length > 0 &&
+      this.data.importDishes.every(item => this.data.selectedImportDishIds[item._id])
+    const selectedImportDishIds = {}
+
+    if (!allSelected) {
+      this.data.importDishes.forEach(item => {
+        selectedImportDishIds[item._id] = true
+      })
+    }
+
+    this.updateImportSelectedCount(selectedImportDishIds)
+  },
+
+  async ensureTargetCategory(categoryName, categorySort, categoryMap, targetCategories) {
+    const name = categoryName || '未分类'
+    if (categoryMap[name]) {
+      return categoryMap[name]
+    }
+
+    const shopFields = this.getCurrentShopFields()
+    const addRes = await db.collection('dishCategory').add({
+      data: {
+        name,
+        sort: typeof categorySort === 'number' ? categorySort : targetCategories.length,
+        ...shopFields,
+        createTime: new Date()
+      }
+    })
+    const category = {
+      _id: addRes._id,
+      name,
+      sort: categorySort,
+      ...shopFields
+    }
+    categoryMap[name] = category
+    targetCategories.push(category)
+    return category
+  },
+
+  async hasImportedDish(sourceDishId) {
+    const currentShopId = this.data.currentShopId
+    const res = await db.collection('dish')
+      .where({
+        shopId: currentShopId,
+        sourceDishId
+      })
+      .limit(1)
+      .get()
+    return res.data && res.data.length > 0
+  },
+
+  async confirmImportDishes() {
+    const selectedDishes = this.data.importDishes.filter(item => this.data.selectedImportDishIds[item._id])
+    if (selectedDishes.length === 0) {
+      wx.showToast({
+        title: '请选择菜品',
+        icon: 'none'
+      })
+      return
+    }
+
+    const sourceShopId = this.data.importSourceShopId
+    if (!sourceShopId || sourceShopId === this.data.currentShopId) {
+      wx.showToast({
+        title: '请选择其他分店',
+        icon: 'none'
+      })
+      return
+    }
+
+    try {
+      wx.showLoading({ title: '导入中...' })
+      const shopFields = this.getCurrentShopFields()
+      const sourceShopName = this.getShopNameById(sourceShopId)
+      const categoryMap = {}
+      const targetCategories = this.data.categories.slice()
+      targetCategories.forEach(item => {
+        categoryMap[item.name || '未分类'] = item
+      })
+      const sourceCategoryMap = {}
+      this.data.importCategories.forEach(item => {
+        sourceCategoryMap[item._id] = item
+      })
+
+      let importedCount = 0
+      let skippedCount = 0
+
+      for (let i = 0; i < selectedDishes.length; i++) {
+        const sourceDish = selectedDishes[i]
+        if (await this.hasImportedDish(sourceDish._id)) {
+          skippedCount += 1
+          continue
+        }
+
+        const sourceCategory = sourceCategoryMap[sourceDish.categoryId] || {}
+        const targetCategory = await this.ensureTargetCategory(
+          sourceDish.importCategoryName || sourceDish.categoryName || sourceCategory.name || '未分类',
+          typeof sourceCategory.sort === 'number' ? sourceCategory.sort : targetCategories.length,
+          categoryMap,
+          targetCategories
+        )
+
+        const {
+          _id,
+          _openid,
+          shopId,
+          shopName,
+          sourceShopId: oldSourceShopId,
+          sourceShopName: oldSourceShopName,
+          sourceDishId,
+          createTime,
+          updateTime,
+          categoryId,
+          categoryName,
+          importCategoryName,
+          ...copyData
+        } = sourceDish
+
+        await db.collection('dish').add({
+          data: {
+            ...copyData,
+            categoryId: targetCategory._id,
+            categoryName: targetCategory.name,
+            ...shopFields,
+            sourceShopId,
+            sourceShopName,
+            sourceDishId: _id,
+            status: typeof sourceDish.status === 'undefined' ? 1 : sourceDish.status,
+            createTime: new Date()
+          }
+        })
+        importedCount += 1
+      }
+
+      wx.hideLoading()
+      wx.showToast({
+        title: skippedCount > 0 ? `导入${importedCount}个，跳过${skippedCount}个` : `导入${importedCount}个`,
+        icon: 'none'
+      })
+      this.closeImportDishModal()
+      await this.loadCategories()
+    } catch (err) {
+      wx.hideLoading()
+      console.error('导入菜品失败', err)
+      wx.showToast({
+        title: '导入失败',
+        icon: 'none'
+      })
+    }
   },
 
   // ==================== 标签管理 ====================

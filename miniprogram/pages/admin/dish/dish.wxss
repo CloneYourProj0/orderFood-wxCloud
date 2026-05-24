@@ -6,6 +6,44 @@
   background: #f5f5f5;
 }
 
+.shop-filter-bar {
+  background: #fff;
+  padding: 18rpx 24rpx;
+  border-bottom: 2rpx solid #f0f0f0;
+}
+
+.shop-picker {
+  min-height: 76rpx;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 0 22rpx;
+  border: 2rpx solid #f0f0f0;
+  border-radius: 12rpx;
+  background: #fafafa;
+}
+
+.shop-picker-label {
+  font-size: 24rpx;
+  color: #888;
+}
+
+.shop-picker-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shop-picker-arrow {
+  font-size: 24rpx;
+  color: #e54d42;
+}
+
 /* ==================== 主内容区 ==================== */
 .main-content {
   flex: 1;
@@ -108,6 +146,12 @@
   color: #333;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
 .add-dish-btn {
   padding: 15rpx 30rpx;
   background: linear-gradient(135deg, #e54d42 0%, #f37370 100%);
@@ -121,6 +165,14 @@
 
 .add-dish-btn .add-icon {
   font-size: 28rpx;
+}
+
+.import-dish-btn {
+  padding: 15rpx 26rpx;
+  color: #e54d42;
+  border: 2rpx solid #e54d42;
+  border-radius: 50rpx;
+  font-size: 26rpx;
 }
 
 /* ==================== 菜品列表 ==================== */
@@ -376,6 +428,92 @@
   padding: 0 20rpx;
   font-size: 28rpx;
   box-sizing: border-box;
+}
+
+.picker-input {
+  display: flex;
+  align-items: center;
+}
+
+.import-modal .modal-content {
+  padding-bottom: 20rpx;
+}
+
+.import-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+
+.select-all-btn {
+  color: #e54d42;
+  padding: 10rpx 18rpx;
+}
+
+.import-dish-list {
+  height: 560rpx;
+}
+
+.import-dish-item {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 18rpx;
+  margin-bottom: 14rpx;
+  border: 2rpx solid #f0f0f0;
+  border-radius: 12rpx;
+  background: #fff;
+}
+
+.import-dish-item.selected {
+  border-color: #e54d42;
+  background: #fff7f6;
+}
+
+.import-check {
+  width: 72rpx;
+  font-size: 24rpx;
+  color: #e54d42;
+  text-align: center;
+}
+
+.import-dish-image {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 10rpx;
+  flex-shrink: 0;
+}
+
+.import-dish-image.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f6f6f6;
+  color: #999;
+  font-size: 22rpx;
+}
+
+.import-dish-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-dish-name {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-dish-meta {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #888;
 }
 
 .form-textarea {

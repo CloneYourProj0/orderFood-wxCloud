@@ -212,6 +212,80 @@ Page({
     this.updateCanSubmit()
   },
 
+  parseTableScene(sceneValue) {
+    const decoded = decodeURIComponent(sceneValue || '').trim()
+    if (!decoded) {
+      return {
+        tableNumber: '',
+        shopId: ''
+      }
+    }
+
+    const query = decoded.indexOf('?') > -1 ? decoded.split('?')[1] : decoded
+    if (query.indexOf('=') === -1) {
+      return {
+        tableNumber: query,
+        shopId: ''
+      }
+    }
+
+    const params = {}
+    query.split('&').forEach(item => {
+      const pair = item.split('=')
+      const key = pair[0]
+      const value = pair.slice(1).join('=')
+      if (key) {
+        params[key] = decodeURIComponent(value || '')
+      }
+    })
+
+    return {
+      tableNumber: (params.tableNumber || params.table || params.tableNo || params.t || '').trim(),
+      shopId: (params.shopId || params.storeId || params.shop || params.s || '').trim()
+    }
+  },
+
+  async applyScannedTableScene(scene) {
+    const { tableNumber, shopId } = this.parseTableScene(scene)
+    if (!tableNumber) return false
+
+    const nextData = {
+      tableNumber
+    }
+
+    if (shopId && this.data.shopId && shopId !== this.data.shopId) {
+      wx.showModal({
+        title: '桌码分店不一致',
+        content: '该桌码属于其他分店，请返回点餐页重新扫码点餐。',
+        showCancel: false
+      })
+      return false
+    }
+
+    if (shopId && shopId !== this.data.shopId) {
+      try {
+        const shopRes = await db.collection('shopInfo').doc(shopId).get()
+        if (shopRes.data && shopRes.data.status !== 0) {
+          nextData.shopId = shopId
+          nextData.shopInfo = {
+            _id: shopRes.data._id || shopId,
+            name: shopRes.data.name || '',
+            address: shopRes.data.address || '',
+            phone: shopRes.data.phone || '',
+            latitude: shopRes.data.latitude || '',
+            longitude: shopRes.data.longitude || '',
+            businessHours: shopRes.data.businessHours || ''
+          }
+        }
+      } catch (err) {
+        console.error('查询桌码分店失败', err)
+      }
+    }
+
+    this.setData(nextData)
+    return true
+  },
+
   // 扫码获取桌码
   scanTableCode() {
     wx.showLoading({
@@ -221,10 +295,10 @@ Page({
     wx.scanCode({
       onlyFromCamera: false,
       scanType: ['qrCode', 'barCode', 'wxCode'],
-      success: (res) => {
+      success: async (res) => {
         wx.hideLoading()
         console.log(res)
-        let tableNumber = ''
+        let scene = ''
         
         // 从 path 的 scene 参数中提取桌码号
         if (res.path) {
@@ -234,19 +308,20 @@ Page({
             for (let param of params) {
               const [key, value] = param.split('=')
               if (key === 'scene' && value) {
-                tableNumber = decodeURIComponent(value).trim()
+                scene = decodeURIComponent(value).trim()
                 break
               }
             }
           }
         }
+
+        if (!scene && res.result) {
+          scene = res.result
+        }
         
-        if (tableNumber) {
-          this.setData({
-            tableNumber: tableNumber
-          })
+        if (await this.applyScannedTableScene(scene)) {
           wx.showToast({
-            title: `桌码：${tableNumber}`,
+            title: `桌码：${this.data.tableNumber}`,
             icon: 'success'
           })
           this.updateCanSubmit()

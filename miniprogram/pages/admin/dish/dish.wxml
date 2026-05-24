@@ -1,5 +1,15 @@
 <!--pages/admin/dish/dish.wxml-->
 <view class="page">
+  <view class="shop-filter-bar">
+    <picker mode="selector" range="{{shopList}}" range-key="name" value="{{currentShopIndex}}" bindchange="onShopPickerChange">
+      <view class="shop-picker">
+        <view class="shop-picker-label">当前分店</view>
+        <view class="shop-picker-name">{{shopList[currentShopIndex].name || '请选择分店'}}</view>
+        <view class="shop-picker-arrow">切换</view>
+      </view>
+    </picker>
+  </view>
+
   <!-- 主内容区 -->
   <view class="main-content">
     <!-- 左侧分类菜单 -->
@@ -33,9 +43,14 @@
         <view class="header-title">
           {{currentCategoryId ? '菜品管理' : '请选择分类'}}
         </view>
-        <view class="add-dish-btn" bindtap="showAddDishModal" wx:if="{{currentCategoryId}}">
-          <text class="add-icon">+</text>
-          <text>添加菜品</text>
+        <view class="header-actions" wx:if="{{currentShopId}}">
+          <view class="import-dish-btn" bindtap="showImportDishModal">
+            <text>导入菜品</text>
+          </view>
+          <view class="add-dish-btn" bindtap="showAddDishModal" wx:if="{{currentCategoryId}}">
+            <text class="add-icon">+</text>
+            <text>添加菜品</text>
+          </view>
         </view>
       </view>
 
@@ -74,6 +89,50 @@
       <view class="empty-category" wx:if="{{!currentCategoryId}}">
         <text class="empty-icon">📋</text>
         <text class="empty-text">请先在左侧选择或添加分类</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 菜品导入弹窗 -->
+  <view class="modal-mask" wx:if="{{showImportModal}}" catchtap="closeImportDishModal">
+    <view class="modal-dialog large import-modal" catchtap="stopPropagation">
+      <view class="modal-title">从其他分店导入菜品</view>
+      <view class="modal-content">
+        <view class="form-item">
+          <view class="form-label">来源分店</view>
+          <picker mode="selector" range="{{importSourceList}}" range-key="name" value="{{importSourceIndex}}" bindchange="onImportSourceChange">
+            <view class="form-input picker-input">
+              {{importSourceList[importSourceIndex].name || '请选择来源分店'}}
+            </view>
+          </picker>
+        </view>
+        <view class="import-toolbar">
+          <text>已选择 {{importSelectedCount}} 个菜品</text>
+          <view class="select-all-btn" bindtap="toggleSelectAllImportDishes">
+            {{importSelectedCount === importDishes.length && importDishes.length > 0 ? '清空' : '全选'}}
+          </view>
+        </view>
+        <scroll-view class="import-dish-list" scroll-y>
+          <view
+            class="import-dish-item {{selectedImportDishIds[item._id] ? 'selected' : ''}}"
+            wx:for="{{importDishes}}"
+            wx:key="_id"
+            bindtap="toggleImportDish"
+            data-id="{{item._id}}">
+            <view class="import-check">{{selectedImportDishIds[item._id] ? '已选' : '选择'}}</view>
+            <image class="import-dish-image" src="{{item.image}}" mode="aspectFill" wx:if="{{item.image}}"></image>
+            <view class="import-dish-image placeholder" wx:else>无图</view>
+            <view class="import-dish-info">
+              <view class="import-dish-name">{{item.name}}</view>
+              <view class="import-dish-meta">{{item.importCategoryName}} · ¥{{item.price}}</view>
+            </view>
+          </view>
+          <van-empty wx:if="{{!loadingImportDishes && importDishes.length === 0}}" description="来源分店暂无菜品" />
+        </scroll-view>
+      </view>
+      <view class="modal-footer">
+        <view class="modal-btn cancel" bindtap="closeImportDishModal">取消</view>
+        <view class="modal-btn confirm" bindtap="confirmImportDishes">导入</view>
       </view>
     </view>
   </view>

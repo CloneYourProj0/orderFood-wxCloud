@@ -1075,6 +1075,26 @@ button:disabled {
   border-top: 1px solid #f0ede8;
 }
 
+.import-check-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.import-check-row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  font-size: 14px;
+  color: var(--text);
+}
+
 .toast {
   position: absolute;
   left: 50%;
