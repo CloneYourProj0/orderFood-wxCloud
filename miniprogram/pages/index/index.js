@@ -1,10 +1,15 @@
 // pages/index/index.js
 const app = getApp()
 const db = wx.cloud.database()
-const { normalizeShopList } = require('../../utils/location.js')
-const { getDefaultShopId, buildShopScopedWhere, isShopScopedItem } = require('../../utils/shopScope.js')
-const SELECTED_SHOP_ID_KEY = 'selectedShopId'
-const SELECTED_SHOP_INFO_KEY = 'selectedShopInfo'
+const { buildShopScopedWhere, isShopScopedItem } = require('../../utils/shopScope.js')
+const {
+  loadShopList,
+  saveSelectedShop,
+  readStoredShop,
+  pickPreferredShop,
+  locateAndSort,
+  getDefaultShopId
+} = require('../../utils/currentShop.js')
 
 Page({
   data: {
@@ -49,7 +54,7 @@ Page({
     })
 
     this.pendingShopId = options.shopId || ''
-    this.hasStoredShop = !!wx.getStorageSync(SELECTED_SHOP_ID_KEY)
+    this.hasStoredShop = !!readStoredShop().id
 
     // 读取首页设置的订单类型偏好（不消费 storage，留给 settle 页面消费）
     const preferOrderType = wx.getStorageSync('preferOrderType')
@@ -77,12 +82,29 @@ Page({
 
   onShow() {
     this.loadUserInfo()
+    this.syncSelectedShopFromStorage()
     this.consumePendingFromHome()
     // 刷新订单类型偏好（home 可能在 settle 消费后又写入新的）
     const preferOrderType = wx.getStorageSync('preferOrderType')
     if (preferOrderType && preferOrderType !== this.data.preferOrderType) {
       this.setData({ preferOrderType })
     }
+  },
+
+  // 跨 tab 同步：首页切了店后切回点餐 tab 时，比对 storage 把当前店刷成首页选的那家
+  syncSelectedShopFromStorage() {
+    const stored = readStoredShop()
+    if (!stored.id) return
+    const currentShopId = this.getCurrentShopId()
+    if (stored.id === currentShopId) return
+    if (!this.data.shopList || this.data.shopList.length === 0) return
+    const shop = this.data.shopList.find(item => item._id === stored.id)
+    if (!shop) return
+    this.setData({
+      currentShop: shop,
+      shopInfo: shop
+    })
+    this.handleShopChanged(currentShopId, { clearCart: true, clearTable: false })
   },
 
   // 从首页跳过来时，读取并清理首页写入的临时数据
@@ -103,7 +125,7 @@ Page({
       if (shop && shop._id !== currentShopId) {
         const previousShopId = currentShopId
         this.setData({ currentShop: shop, shopInfo: shop })
-        this.saveSelectedShop(shop)
+        saveSelectedShop(shop)
         this.handleShopChanged(previousShopId, { clearCart: true, clearTable: false })
       }
     }
@@ -115,19 +137,10 @@ Page({
   // 加载分店信息，兼容原来的单店 shopInfo 记录
   async loadShopInfo() {
     try {
-      const res = await db.collection('shopInfo')
-        .orderBy('sort', 'asc')
-        .limit(100)
-        .get()
-      const rawList = res.data || []
-      const activeList = rawList.filter(item => item.status !== 0)
-      const shopList = normalizeShopList(activeList.length ? activeList : rawList, this.data.userLocation)
-      const storedShopId = wx.getStorageSync(SELECTED_SHOP_ID_KEY)
-      const targetShopId = this.pendingShopId || storedShopId
-      const currentShop = shopList.find(item => item._id === targetShopId)
-        || shopList.find(item => item.status !== 0)
-        || shopList[0]
-        || null
+      const { shopList } = await loadShopList(this.data.userLocation)
+      const stored = readStoredShop()
+      const preferId = this.pendingShopId || stored.id
+      const currentShop = pickPreferredShop(shopList, { preferId })
 
       this.setData({
         shopList,
@@ -136,26 +149,19 @@ Page({
       })
 
       if (currentShop) {
-        this.saveSelectedShop(currentShop)
+        saveSelectedShop(currentShop)
       }
     } catch (err) {
       console.error('加载店铺信息失败', err)
-      const cachedShop = wx.getStorageSync(SELECTED_SHOP_INFO_KEY)
-      if (cachedShop && cachedShop._id) {
+      const stored = readStoredShop()
+      if (stored.info && stored.info._id) {
         this.setData({
-          currentShop: cachedShop,
-          shopInfo: cachedShop,
-          shopList: [cachedShop]
+          currentShop: stored.info,
+          shopInfo: stored.info,
+          shopList: [stored.info]
         })
       }
     }
-  },
-
-  saveSelectedShop(shop) {
-    if (!shop) return
-    app.globalData.currentShop = shop
-    wx.setStorageSync(SELECTED_SHOP_ID_KEY, shop._id || '')
-    wx.setStorageSync(SELECTED_SHOP_INFO_KEY, shop)
   },
 
   getCurrentShopId() {
@@ -219,8 +225,8 @@ Page({
     })
   },
 
-  selectShop(e) {
-    const shopId = e.currentTarget.dataset.id
+  onShopSelect(e) {
+    const shopId = e.detail && e.detail.shopId
     const shop = this.data.shopList.find(item => item._id === shopId)
     if (!shop) return
     const previousShopId = this.getCurrentShopId()
@@ -230,7 +236,7 @@ Page({
       shopInfo: shop,
       showShopSelector: false
     })
-    this.saveSelectedShop(shop)
+    saveSelectedShop(shop)
     wx.showToast({
       title: '已切换分店',
       icon: 'success'
@@ -243,71 +249,58 @@ Page({
     const opts = isTapEvent ? { silent: false, keepSelected: false } : options
 
     this.setData({ locating: true })
-    wx.getLocation({
-      type: 'gcj02',
-      success: (res) => {
-        const userLocation = {
-          latitude: res.latitude,
-          longitude: res.longitude
-        }
-        app.globalData.userLocation = userLocation
+    locateAndSort(this.data.shopList).then(({ userLocation, shopList }) => {
+      const previousShopId = this.getCurrentShopId()
+      const stored = readStoredShop()
+      const currentShopId = opts.keepSelected ? (this.data.currentShop?._id || stored.id) : ''
+      const currentShop = shopList.find(item => item._id === currentShopId)
+        || shopList.find(item => item.distance !== null && item.status !== 0)
+        || pickPreferredShop(shopList, {})
 
-        const previousShopId = this.getCurrentShopId()
-        const shopList = normalizeShopList(this.data.shopList, userLocation)
-        const storedShopId = wx.getStorageSync(SELECTED_SHOP_ID_KEY)
-        const currentShopId = opts.keepSelected ? (this.data.currentShop?._id || storedShopId) : ''
-        const currentShop = shopList.find(item => item._id === currentShopId)
-          || shopList.find(item => item.distance !== null && item.status !== 0)
-          || shopList.find(item => item.status !== 0)
-          || shopList[0]
-          || null
+      this.setData({
+        userLocation,
+        shopList,
+        currentShop,
+        shopInfo: currentShop || {},
+        locating: false
+      })
 
-        this.setData({
-          userLocation,
-          shopList,
-          currentShop,
-          shopInfo: currentShop || {},
-          locating: false
+      if (currentShop) {
+        saveSelectedShop(currentShop)
+      }
+
+      this.handleShopChanged(previousShopId, {
+        clearCart: !!previousShopId,
+        clearTable: !opts.silent
+      })
+
+      if (!opts.silent) {
+        wx.showToast({
+          title: currentShop && currentShop.distanceText ? `最近：${currentShop.distanceText}` : '定位成功',
+          icon: 'none'
         })
-
-        if (currentShop) {
-          this.saveSelectedShop(currentShop)
-        }
-
-        this.handleShopChanged(previousShopId, {
-          clearCart: !!previousShopId,
-          clearTable: !opts.silent
-        })
-
-        if (!opts.silent) {
+      }
+    }).catch((err) => {
+      console.error('定位失败', err)
+      this.setData({ locating: false })
+      if (!opts.silent) {
+        const denied = err && err.errMsg && err.errMsg.indexOf('auth deny') > -1
+        if (denied) {
+          wx.showModal({
+            title: '需要定位权限',
+            content: '开启定位后可为你推荐最近的分店',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) {
+                wx.openSetting()
+              }
+            }
+          })
+        } else {
           wx.showToast({
-            title: currentShop && currentShop.distanceText ? `最近：${currentShop.distanceText}` : '定位成功',
+            title: '定位失败，请手动选择分店',
             icon: 'none'
           })
-        }
-      },
-      fail: (err) => {
-        console.error('定位失败', err)
-        this.setData({ locating: false })
-        if (!opts.silent) {
-          const denied = err.errMsg && err.errMsg.indexOf('auth deny') > -1
-          if (denied) {
-            wx.showModal({
-              title: '需要定位权限',
-              content: '开启定位后可为你推荐最近的分店',
-              confirmText: '去设置',
-              success: (res) => {
-                if (res.confirm) {
-                  wx.openSetting()
-                }
-              }
-            })
-          } else {
-            wx.showToast({
-              title: '定位失败，请手动选择分店',
-              icon: 'none'
-            })
-          }
         }
       }
     })
@@ -360,7 +353,7 @@ Page({
             currentShop: shop,
             shopInfo: shop
           })
-          this.saveSelectedShop(shop)
+          saveSelectedShop(shop)
           this.handleShopChanged(previousShopId, { clearCart: true })
         }
       }

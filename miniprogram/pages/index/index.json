@@ -3,7 +3,8 @@
   "navigationStyle": "custom",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "avatar-nickname-modal": "/components/avatarNicknameModal/avatarNicknameModal"
+    "avatar-nickname-modal": "/components/avatarNicknameModal/avatarNicknameModal",
+    "shop-selector": "/components/shopSelector/shopSelector"
   }
 }
 
