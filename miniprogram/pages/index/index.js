@@ -33,6 +33,7 @@ Page({
     showAuthModal: false, // 显示授权弹窗
     statusBarHeight: 0, // 状态栏高度
     tableNumber: '', // 桌码号
+    preferOrderType: '', // 首页选择的订单类型偏好（dineIn / takeOut），外带跳过桌码校验
     // 菜品分页
     goodsPage: 0,
     goodsPageSize: 20,
@@ -49,7 +50,13 @@ Page({
 
     this.pendingShopId = options.shopId || ''
     this.hasStoredShop = !!wx.getStorageSync(SELECTED_SHOP_ID_KEY)
-    
+
+    // 读取首页设置的订单类型偏好（不消费 storage，留给 settle 页面消费）
+    const preferOrderType = wx.getStorageSync('preferOrderType')
+    if (preferOrderType) {
+      this.setData({ preferOrderType })
+    }
+
     // 检查是否从扫码进入，获取桌码号
     // 小程序码扫码进入时，scene参数会在options.scene中
     if (options.scene) {
@@ -71,6 +78,11 @@ Page({
   onShow() {
     this.loadUserInfo()
     this.consumePendingFromHome()
+    // 刷新订单类型偏好（home 可能在 settle 消费后又写入新的）
+    const preferOrderType = wx.getStorageSync('preferOrderType')
+    if (preferOrderType && preferOrderType !== this.data.preferOrderType) {
+      this.setData({ preferOrderType })
+    }
   },
 
   // 从首页跳过来时，读取并清理首页写入的临时数据
@@ -1010,8 +1022,9 @@ Page({
       return
     }
 
-    // 检查是否有桌码，如果没有则提示用户扫桌码
-    if (!this.data.tableNumber) {
+    // 外带不需要桌码，直接进结算页；堂食才校验
+    const isTakeOut = this.data.preferOrderType === 'takeOut'
+    if (!isTakeOut && !this.data.tableNumber) {
       wx.showModal({
         title: '提示',
         content: '请先扫描桌码',
@@ -1026,7 +1039,7 @@ Page({
       return
     }
 
-    // 有桌码，跳转到结算页面
+    // 跳转到结算页面
     this.navigateToSettle()
   },
 

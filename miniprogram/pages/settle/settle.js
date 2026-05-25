@@ -479,7 +479,7 @@ Page({
 
   // 更新是否可以提交
   updateCanSubmit() {
-    const { tableNumber, orderGoods } = this.data
+    const { tableNumber, orderGoods, orderType } = this.data
     let canSubmit = true
 
     // 检查订单商品
@@ -487,8 +487,8 @@ Page({
       canSubmit = false
     }
 
-    // 无论是堂食还是打包，都必须有桌码
-    if (!tableNumber) {
+    // 仅堂食需要桌码，外带不需要
+    if (orderType !== 'takeOut' && !tableNumber) {
       canSubmit = false
     }
 
@@ -520,8 +520,8 @@ Page({
       return
     }
 
-    // 检查桌码（无论是堂食还是打包都需要）
-    if (!this.data.tableNumber) {
+    // 堂食需要桌码，外带不需要
+    if (this.data.orderType !== 'takeOut' && !this.data.tableNumber) {
       wx.showToast({
         title: '请先扫描桌码',
         icon: 'none'

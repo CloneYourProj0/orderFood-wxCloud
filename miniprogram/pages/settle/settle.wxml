@@ -31,8 +31,8 @@
     </view>
   </view>
 
-  <!-- 桌码输入（无论堂食还是打包都需要） -->
-  <view class="section">
+  <!-- 桌码输入（仅堂食需要） -->
+  <view class="section" wx:if="{{orderType !== 'takeOut'}}">
     <view class="table-code-wrapper">
       <view class="table-code-display">
         <text class="table-code-label">桌码号：</text>
