@@ -1,0 +1,281 @@
+/* pages/home/home.wxss */
+page {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.page {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.home-bg {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.home-action-area {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 30rpx);
+  z-index: 1;
+  padding: 0 32rpx;
+  box-sizing: border-box;
+}
+
+.one-row {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 分店卡片 */
+.branch-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 132rpx;
+  margin-bottom: 22rpx;
+  padding: 22rpx 24rpx;
+  box-sizing: border-box;
+  border: 1rpx solid rgba(255, 255, 255, 0.8);
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8rpx 24rpx rgba(83, 52, 22, 0.14);
+  transition: transform 0.2s ease;
+}
+
+.branch-card-hover {
+  transform: scale(0.98);
+}
+
+.branch-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.branch-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10rpx;
+}
+
+.branch-label {
+  font-size: 24rpx;
+  color: #8b6b4c;
+}
+
+.branch-change {
+  flex-shrink: 0;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  background: #e54d42;
+  color: #fff;
+  font-size: 22rpx;
+  line-height: 32rpx;
+}
+
+.branch-name {
+  max-width: 560rpx;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #1f1f1f;
+  line-height: 44rpx;
+}
+
+.branch-address {
+  max-width: 560rpx;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #6f6f6f;
+  line-height: 32rpx;
+}
+
+.branch-arrow {
+  flex-shrink: 0;
+  margin-left: 18rpx;
+  color: #9a9a9a;
+  font-size: 46rpx;
+  line-height: 46rpx;
+}
+
+/* 入口卡片 */
+.bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.entry-card {
+  flex: 1;
+  border-radius: 24rpx;
+  overflow: hidden;
+  line-height: 0;
+  box-shadow: 0 8rpx 20rpx rgba(83, 52, 22, 0.12);
+  transition: transform 0.2s ease;
+}
+
+.entry-card-hover {
+  transform: scale(0.97);
+}
+
+.entry-card-image {
+  width: 100%;
+  display: block;
+}
+
+/* 分店选择弹窗 */
+.shop-selector-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.shop-selector-panel {
+  width: 100%;
+  max-height: 78vh;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.shop-selector-header {
+  padding: 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1rpx solid #f2f2f2;
+}
+
+.shop-selector-title {
+  font-size: 34rpx;
+  color: #333;
+  font-weight: bold;
+}
+
+.shop-selector-subtitle {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #999;
+}
+
+.modal-close-small {
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  font-size: 42rpx;
+  text-align: center;
+  color: #999;
+  background: #f6f6f6;
+  border-radius: 50%;
+}
+
+.shop-selector-action {
+  margin: 24rpx 30rpx 10rpx;
+  min-height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  color: #e54d42;
+  font-size: 28rpx;
+  border: 2rpx solid #ffe0dc;
+  border-radius: 12rpx;
+  background: #fff8f7;
+}
+
+.shop-selector-list {
+  flex: 1;
+  min-height: 360rpx;
+  padding: 0 30rpx 30rpx;
+  box-sizing: border-box;
+}
+
+.shop-card {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  border: 2rpx solid #f0f0f0;
+  border-radius: 16rpx;
+  background: #fff;
+}
+
+.shop-card.active {
+  border-color: #e54d42;
+  background: #fff8f7;
+}
+
+.shop-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.shop-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.shop-card-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shop-card-distance {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #e54d42;
+}
+
+.shop-card-address {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #666;
+  line-height: 32rpx;
+}
+
+.shop-card-extra {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #999;
+}
+
+.shop-card-check {
+  flex-shrink: 0;
+  color: #e54d42;
+  font-size: 36rpx;
+  line-height: 36rpx;
+}
+
+.shop-empty {
+  padding: 80rpx 0;
+  text-align: center;
+  color: #999;
+  font-size: 26rpx;
+}

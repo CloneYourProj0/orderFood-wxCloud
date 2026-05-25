@@ -70,6 +70,34 @@ Page({
 
   onShow() {
     this.loadUserInfo()
+    this.consumePendingFromHome()
+  },
+
+  // 从首页跳过来时，读取并清理首页写入的临时数据
+  consumePendingFromHome() {
+    const pendingTableNumber = wx.getStorageSync('pendingTableNumber')
+    const pendingShopId = wx.getStorageSync('pendingShopId')
+
+    if (pendingTableNumber && pendingTableNumber !== this.data.tableNumber) {
+      this.setData({ tableNumber: pendingTableNumber })
+    }
+    if (pendingTableNumber) {
+      wx.removeStorageSync('pendingTableNumber')
+    }
+
+    if (pendingShopId && this.data.shopList && this.data.shopList.length > 0) {
+      const shop = this.data.shopList.find(item => item._id === pendingShopId)
+      const currentShopId = this.getCurrentShopId()
+      if (shop && shop._id !== currentShopId) {
+        const previousShopId = currentShopId
+        this.setData({ currentShop: shop, shopInfo: shop })
+        this.saveSelectedShop(shop)
+        this.handleShopChanged(previousShopId, { clearCart: true, clearTable: false })
+      }
+    }
+    if (pendingShopId) {
+      wx.removeStorageSync('pendingShopId')
+    }
   },
 
   // 加载分店信息，兼容原来的单店 shopInfo 记录

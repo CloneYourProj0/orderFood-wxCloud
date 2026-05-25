@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/home/home",
     "pages/index/index",
     "pages/recharge/recharge",
     "pages/myorder/myorder",
@@ -28,6 +29,12 @@
     "selectedColor": "#e54d42",
     "backgroundColor": "#ffffff",
     "list": [
+      {
+        "pagePath": "pages/home/home",
+        "iconPath": "images/tabBar/home.png",
+        "selectedIconPath": "images/tabBar/home-active.png",
+        "text": "首页"
+      },
       {
         "pagePath": "pages/index/index",
         "iconPath": "images/tabBar/buy.png",

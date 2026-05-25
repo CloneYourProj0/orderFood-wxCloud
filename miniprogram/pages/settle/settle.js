@@ -80,9 +80,14 @@ Page({
         const tableNumber = cartData.tableNumber || ''
         const shopInfo = cartData.shopInfo || null
         const shopId = cartData.shopId || (shopInfo && shopInfo._id) || ''
-        
-        // 根据是否有桌码设置默认订单类型（有桌码默认堂食，无桌码默认打包）
-        // 但由于现在都需要桌码，所以默认设置为堂食
+
+        // 首页可以预设订单类型（堂食 / 外带），消费一次后清理
+        const preferOrderType = wx.getStorageSync('preferOrderType')
+        const defaultOrderType = preferOrderType === 'takeOut' ? 'takeOut' : 'dineIn'
+        if (preferOrderType) {
+          wx.removeStorageSync('preferOrderType')
+        }
+
         // 确保价格是数字类型
         const totalPrice = Number(cartData.totalPrice) || 0
         this.setData({
@@ -92,7 +97,7 @@ Page({
           tableNumber: tableNumber,
           shopId: shopId,
           shopInfo: shopInfo,
-          orderType: 'dineIn' // 默认堂食
+          orderType: defaultOrderType
         })
 
         // 清除存储的购物车数据
