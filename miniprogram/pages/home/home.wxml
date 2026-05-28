@@ -20,6 +20,16 @@
       <view class="branch-arrow">›</view>
     </view>
 
+    <!-- 堂食 / 外带 入口 -->
+    <view class="bottom-actions">
+      <view class="entry-card" hover-class="entry-card-hover" data-order-type="dineIn" bindtap="handleEntry">
+        <image src="/images/home/dinein.png" class="entry-card-image" mode="widthFix"></image>
+      </view>
+      <view class="entry-card" hover-class="entry-card-hover" data-order-type="takeOut" bindtap="handleEntry">
+        <image src="/images/home/takeout.png" class="entry-card-image" mode="widthFix"></image>
+      </view>
+    </view>
+
     <!-- 当前充值金额 -->
     <view class="recharge-summary-card" hover-class="recharge-summary-card-hover" bindtap="goToRecharge">
       <view class="recharge-summary-main">
@@ -32,16 +42,6 @@
       <view class="recharge-summary-action">
         <text>去充值</text>
         <text class="recharge-summary-arrow">›</text>
-      </view>
-    </view>
-
-    <!-- 堂食 / 外带 入口 -->
-    <view class="bottom-actions">
-      <view class="entry-card" hover-class="entry-card-hover" data-order-type="dineIn" bindtap="handleEntry">
-        <image src="/images/home/dinein.png" class="entry-card-image" mode="widthFix"></image>
-      </view>
-      <view class="entry-card" hover-class="entry-card-hover" data-order-type="takeOut" bindtap="handleEntry">
-        <image src="/images/home/takeout.png" class="entry-card-image" mode="widthFix"></image>
       </view>
     </view>
   </view>
