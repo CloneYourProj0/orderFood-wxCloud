@@ -20,6 +20,21 @@
       <view class="branch-arrow">›</view>
     </view>
 
+    <!-- 当前充值金额 -->
+    <view class="recharge-summary-card" hover-class="recharge-summary-card-hover" bindtap="goToRecharge">
+      <view class="recharge-summary-main">
+        <view class="recharge-summary-label">当前充值金额</view>
+        <view class="recharge-summary-amount">
+          <text class="recharge-summary-symbol">¥</text>
+          <text>{{rechargeAmountText}}</text>
+        </view>
+      </view>
+      <view class="recharge-summary-action">
+        <text>去充值</text>
+        <text class="recharge-summary-arrow">›</text>
+      </view>
+    </view>
+
     <!-- 堂食 / 外带 入口 -->
     <view class="bottom-actions">
       <view class="entry-card" hover-class="entry-card-hover" data-order-type="dineIn" bindtap="handleEntry">

@@ -1,4 +1,6 @@
 // pages/home/home.js
+const app = getApp()
+const db = wx.cloud.database()
 const { parseTableScene } = require('../../utils/tableScene.js')
 const {
   loadShopList,
@@ -15,7 +17,9 @@ Page({
     branchAddressText: '',
     locating: false,
     showShopSelector: false,
-    userLocation: null
+    userLocation: null,
+    userInfo: null,
+    rechargeAmountText: '0.00'
   },
 
   onLoad(options) {
@@ -33,12 +37,58 @@ Page({
     this.loadShopInfo().then(() => {
       this.locateNearestShop({ silent: true, keepSelected: true })
     })
+    this.loadUserInfo()
   },
 
   onShow() {
+    this.loadUserInfo()
     if (this.data.shopList && this.data.shopList.length > 0) {
       this.refreshCurrentShop()
     }
+  },
+
+  async loadUserInfo() {
+    try {
+      const globalUser = app.globalData && app.globalData.userInfo
+      if (globalUser) {
+        this.setData({
+          userInfo: globalUser,
+          rechargeAmountText: this.formatAmount(globalUser.balance || 0)
+        })
+      }
+
+      const openid = app.globalData && app.globalData.openid
+      if (!openid) return
+
+      const res = await db.collection('user').where({
+        _openid: openid
+      }).limit(1).get()
+
+      if (res.data && res.data.length > 0) {
+        const user = res.data[0]
+        if (typeof user.balance === 'undefined') {
+          await db.collection('user').doc(user._id).update({
+            data: {
+              balance: 0
+            }
+          })
+          user.balance = 0
+        }
+
+        app.globalData.userInfo = user
+        this.setData({
+          userInfo: user,
+          rechargeAmountText: this.formatAmount(user.balance || 0)
+        })
+      }
+    } catch (err) {
+      console.error('获取用户信息失败', err)
+    }
+  },
+
+  formatAmount(value) {
+    const amount = Number(value) || 0
+    return amount.toFixed(2)
   },
 
   async loadShopInfo() {
@@ -236,5 +286,9 @@ Page({
 
   goToOrderPage() {
     wx.switchTab({ url: '/pages/index/index' })
+  },
+
+  goToRecharge() {
+    wx.switchTab({ url: '/pages/recharge/recharge' })
   }
 })
