@@ -1,6 +1,6 @@
 <!--pages/home/home.wxml-->
 <view class="page">
-  <image src="/images/home/background.png" class="home-bg" mode="aspectFill"></image>
+  <image src="/images/home/background.jpg" class="home-bg" mode="aspectFill"></image>
 
   <view class="home-action-area">
     <!-- 分店卡片 -->

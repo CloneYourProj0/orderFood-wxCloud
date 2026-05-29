@@ -83,12 +83,20 @@
         "value": "miniprogram/images/bg.png"
       },
       {
+        "type": "file",
+        "value": "miniprogram/images/home/background.png"
+      },
+      {
         "type": "folder",
         "value": "images/githubImg"
       },
       {
         "type": "file",
         "value": "images/bg.png"
+      },
+      {
+        "type": "file",
+        "value": "images/home/background.png"
       }
     ],
     "include": []
