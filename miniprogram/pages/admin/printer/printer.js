@@ -14,17 +14,6 @@ Page({
       sn: '',
       key: '',
       name: ''
-    },
-    densityText: {
-      4: '较淡',
-      5: '普通',
-      6: '较浓',
-      7: '浓'
-    },
-    speedText: {
-      1: '慢',
-      2: '中',
-      3: '快'
     }
   },
 
@@ -166,8 +155,6 @@ Page({
         sn: sn.trim(),
         key: key.trim(),
         name: name.trim() || `打印机${sn}`,
-        density: 6, // 默认较浓
-        printSpeed: 2, // 默认中等速度
         volume: 3, // 默认音量3
         createTime: db.serverDate()
       }
@@ -492,110 +479,6 @@ Page({
       console.error('测试打印失败', err)
       wx.showToast({
         title: err.message || '测试打印失败',
-        icon: 'none'
-      })
-    }
-  },
-
-  // 设置打印浓度
-  async setDensity(e) {
-    const density = parseInt(e.currentTarget.dataset.value)
-    const printerInfo = this.data.printerInfo
-    if (!printerInfo) return
-
-    try {
-      wx.showLoading({ title: '设置中...' })
-
-      const res = await wx.cloud.callFunction({
-        name: 'printManage',
-        data: {
-          $url: 'setDensity',
-          sn: printerInfo.sn,
-          density: density
-        }
-      })
-
-      if (res.result && res.result.success) {
-        // 更新数据库
-        await db.collection('printer').doc(printerInfo._id).update({
-          data: {
-            density: density
-          }
-        })
-
-        this.setData({
-          'printerInfo.density': density
-        })
-
-        wx.hideLoading()
-        wx.showToast({
-          title: '设置成功',
-          icon: 'success'
-        })
-      } else {
-        wx.hideLoading()
-        wx.showToast({
-          title: res.result?.error || '设置失败',
-          icon: 'none'
-        })
-      }
-    } catch (err) {
-      wx.hideLoading()
-      console.error('设置浓度失败', err)
-      wx.showToast({
-        title: '设置失败',
-        icon: 'none'
-      })
-    }
-  },
-
-  // 设置打印速度
-  async setPrintSpeed(e) {
-    const printSpeed = parseInt(e.currentTarget.dataset.value)
-    const printerInfo = this.data.printerInfo
-    if (!printerInfo) return
-
-    try {
-      wx.showLoading({ title: '设置中...' })
-
-      const res = await wx.cloud.callFunction({
-        name: 'printManage',
-        data: {
-          $url: 'setPrintSpeed',
-          sn: printerInfo.sn,
-          printSpeed: printSpeed
-        }
-      })
-
-      if (res.result && res.result.success) {
-        // 更新数据库
-        await db.collection('printer').doc(printerInfo._id).update({
-          data: {
-            printSpeed: printSpeed
-          }
-        })
-
-        this.setData({
-          'printerInfo.printSpeed': printSpeed
-        })
-
-        wx.hideLoading()
-        wx.showToast({
-          title: '设置成功',
-          icon: 'success'
-        })
-      } else {
-        wx.hideLoading()
-        wx.showToast({
-          title: res.result?.error || '设置失败',
-          icon: 'none'
-        })
-      }
-    } catch (err) {
-      wx.hideLoading()
-      console.error('设置速度失败', err)
-      wx.showToast({
-        title: '设置失败',
         icon: 'none'
       })
     }

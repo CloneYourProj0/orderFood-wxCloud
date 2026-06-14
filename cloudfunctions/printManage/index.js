@@ -123,7 +123,7 @@ async function spyunRequest(path, method, params = {}) {
     }
   }
 
-  if (upperMethod === 'GET') {
+  if (upperMethod === 'GET' || upperMethod === 'DELETE') {
     options.params = signedParams
   } else {
     options.data = querystring.stringify(signedParams)
@@ -289,22 +289,6 @@ exports.main = async (event, context) => {
         code: error.code,
         data: error.data
       }
-    }
-  })
-
-  // 商鹏接口不支持浓度设置，保留路由用于前端兼容
-  app.router('setDensity', async (ctx, next) => {
-    ctx.body = {
-      success: false,
-      error: '商鹏打印机接口暂不支持设置打印浓度'
-    }
-  })
-
-  // 商鹏接口不支持打印速度设置，保留路由用于前端兼容
-  app.router('setPrintSpeed', async (ctx, next) => {
-    ctx.body = {
-      success: false,
-      error: '商鹏打印机接口暂不支持设置打印速度'
     }
   })
 

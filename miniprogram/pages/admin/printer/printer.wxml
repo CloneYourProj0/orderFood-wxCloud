@@ -18,14 +18,6 @@
         <text class="info-value">{{printerStatus.workStatusDesc || '未知'}}</text>
       </view>
       <view class="info-item">
-        <text class="info-label">打印浓度：</text>
-        <text class="info-value">{{densityText[printerInfo.density] || '默认'}}</text>
-      </view>
-      <view class="info-item">
-        <text class="info-label">打印速度：</text>
-        <text class="info-value">{{speedText[printerInfo.printSpeed] || '默认'}}</text>
-      </view>
-      <view class="info-item">
         <text class="info-label">音量：</text>
         <text class="info-value">{{printerInfo.volume !== undefined ? printerInfo.volume : '默认'}}</text>
       </view>
@@ -47,62 +39,6 @@
   <!-- 设置区域 -->
   <view class="settings-section" wx:if="{{printerInfo}}">
     <view class="section-title">打印设置</view>
-    
-    <!-- 打印浓度 -->
-    <view class="setting-item">
-      <view class="setting-label">打印浓度</view>
-      <view class="setting-options">
-        <view 
-          class="option-btn {{printerInfo.density === 4 ? 'active' : ''}}"
-          bindtap="setDensity"
-          data-value="4">
-          较淡
-        </view>
-        <view 
-          class="option-btn {{printerInfo.density === 5 ? 'active' : ''}}"
-          bindtap="setDensity"
-          data-value="5">
-          普通
-        </view>
-        <view 
-          class="option-btn {{printerInfo.density === 6 || !printerInfo.density ? 'active' : ''}}"
-          bindtap="setDensity"
-          data-value="6">
-          较浓
-        </view>
-        <view 
-          class="option-btn {{printerInfo.density === 7 ? 'active' : ''}}"
-          bindtap="setDensity"
-          data-value="7">
-          浓
-        </view>
-      </view>
-    </view>
-
-    <!-- 打印速度 -->
-    <view class="setting-item">
-      <view class="setting-label">打印速度</view>
-      <view class="setting-options">
-        <view 
-          class="option-btn {{printerInfo.printSpeed === 1 ? 'active' : ''}}"
-          bindtap="setPrintSpeed"
-          data-value="1">
-          慢
-        </view>
-        <view 
-          class="option-btn {{printerInfo.printSpeed === 2 ? 'active' : ''}}"
-          bindtap="setPrintSpeed"
-          data-value="2">
-          中
-        </view>
-        <view 
-          class="option-btn {{printerInfo.printSpeed === 3 ? 'active' : ''}}"
-          bindtap="setPrintSpeed"
-          data-value="3">
-          快
-        </view>
-      </view>
-    </view>
 
     <!-- 音量 -->
     <view class="setting-item">
